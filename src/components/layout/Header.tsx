@@ -6,7 +6,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenWizard }) => {
-  const { state, activePage } = useApp();
+  const { state, activePage, backendStatus, wakeUpElapsed, wakeUpBackend } = useApp();
 
   const getPageTitle = () => {
     switch (activePage) {
@@ -36,8 +36,35 @@ export const Header: React.FC<HeaderProps> = ({ onOpenWizard }) => {
 
       {/* Right Telemetry & Actions */}
       <div className="flex items-center gap-space-md">
+        {/* Engine Status & Wake-up Button */}
+        {backendStatus === 'connected' ? (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-medium">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="font-mono">Engine Online</span>
+          </div>
+        ) : backendStatus === 'waking' ? (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-300 text-xs font-medium shadow-xs">
+            <span className="material-symbols-outlined text-[15px] animate-spin text-amber-700">sync</span>
+            <span>Waking Engine... ({wakeUpElapsed}s)</span>
+          </div>
+        ) : (
+          <button
+            onClick={() => wakeUpBackend()}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high hover:bg-surface-container text-on-surface border border-outline-variant text-xs font-medium transition-colors shadow-xs"
+            title="Render free tier container may be sleeping. Click to wake up."
+            type="button"
+          >
+            <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+            <span className="text-secondary">Engine Asleep</span>
+            <span className="text-primary font-semibold flex items-center gap-0.5 ml-1">
+              <span className="material-symbols-outlined text-[14px]">bolt</span>
+              <span>Wake Up</span>
+            </span>
+          </button>
+        )}
+
         {/* Context metadata telemetry */}
-        <div className="hidden xl:flex items-center gap-space-md border-r border-surface-container-high pr-space-md text-xs text-secondary">
+        <div className="hidden xl:flex items-center gap-space-md border-l border-surface-container-high pl-space-md text-xs text-secondary">
           <div className="flex items-center gap-1.5">
             <span className="text-outline">Assessment:</span>
             <span className="text-on-surface font-mono font-medium">{state.dataset?.name || 'No Dataset'}</span>

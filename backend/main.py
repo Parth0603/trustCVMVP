@@ -47,11 +47,11 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# Enable CORS for local Vite development frontend
+# Enable CORS for local Vite development and Vercel cloud deployments
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "*"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -60,6 +60,16 @@ app.add_middleware(
 def on_startup():
     init_db()
 
+@app.get("/")
+def root_index():
+    return {
+        "service": "TRUST-CV Local/Cloud Assurance Engine",
+        "status": "online",
+        "health_endpoint": "/api/health",
+        "version": "2.0.0"
+    }
+
+@app.get("/health")
 @app.get("/api/health")
 def health_check():
     return {
@@ -338,3 +348,8 @@ def verify_provenance(req: VerifyProvenanceRequest):
         reason=reason,
         canonical_payload=canonical
     )
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=port, reload=False)

@@ -2,7 +2,7 @@ import React from 'react';
 import { useApp, PageRoute } from '../../state/AppContext';
 
 export const Sidebar: React.FC = () => {
-  const { activePage, setActivePage } = useApp();
+  const { activePage, setActivePage, backendStatus, wakeUpElapsed } = useApp();
 
   const navItemClass = (page: PageRoute) => {
     const isActive = activePage === page;
@@ -132,11 +132,29 @@ export const Sidebar: React.FC = () => {
       <div className="flex flex-col gap-2 pt-space-md border-t border-surface-container-high">
         <div className="flex items-center justify-between px-space-xs">
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="font-label-sm text-xs text-on-surface font-medium">System Online</span>
+            <span className={`h-2 w-2 rounded-full ${
+              backendStatus === 'connected'
+                ? 'bg-emerald-500 animate-pulse'
+                : backendStatus === 'waking'
+                ? 'bg-amber-500 animate-ping'
+                : 'bg-amber-400'
+            }`}></span>
+            <span className="font-label-sm text-xs text-on-surface font-medium">
+              {backendStatus === 'connected'
+                ? 'Engine Online'
+                : backendStatus === 'waking'
+                ? `Waking (${wakeUpElapsed}s)`
+                : 'Engine Inactive'}
+            </span>
           </div>
-          <span className="font-label-sm text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-container-low text-secondary border border-outline-variant/40">
-            AIR-GAPPED
+          <span className={`font-label-sm text-[10px] font-mono px-1.5 py-0.5 rounded border ${
+            backendStatus === 'connected'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200 font-semibold'
+              : backendStatus === 'waking'
+              ? 'bg-amber-50 text-amber-800 border-amber-200 font-semibold'
+              : 'bg-surface-container-low text-secondary border-outline-variant/40'
+          }`}>
+            {backendStatus === 'connected' ? 'LIVE' : backendStatus === 'waking' ? 'WARMUP' : 'SLEEP'}
           </span>
         </div>
       </div>

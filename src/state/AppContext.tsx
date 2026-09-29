@@ -9,6 +9,7 @@ import { getInitialState } from '../data/initialState';
 import { pseudoHash } from '../utils/crypto';
 import { formatTimestamp } from '../utils/helpers';
 import { realBackendApi } from '../services/realBackendApi';
+import { getApiEndpoint } from '../services/apiConfig';
 
 export type PageRoute =
   | 'landing'
@@ -55,6 +56,9 @@ interface AppContextType {
   runFullDemoSequence: () => void;
   // Real Local Offline Backend
   isBackendConnected: boolean;
+  backendStatus: 'connected' | 'offline' | 'waking';
+  wakeUpElapsed: number;
+  wakeUpBackend: () => Promise<boolean>;
   assessmentProgress: { stage: string; percent: number; message: string } | null;
   runRealAssessment: (datasetUploadId: string, modelUploadId?: string, referenceUploadId?: string) => Promise<string>;
   loadRealAssessment: (assessmentId: string) => Promise<void>;
@@ -67,24 +71,61 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [state, setState] = useState<SystemState>(getInitialState);
   const [activePage, setActivePage] = useState<PageRoute>('overview');
   const [isBackendConnected, setIsBackendConnected] = useState<boolean>(false);
+  const [backendStatus, setBackendStatus] = useState<'connected' | 'offline' | 'waking'>('offline');
+  const [wakeUpElapsed, setWakeUpElapsed] = useState<number>(0);
   const [assessmentProgress, setAssessmentProgress] = useState<{ stage: string; percent: number; message: string } | null>(null);
 
   // Poll backend health on startup and periodically
   useEffect(() => {
     let mounted = true;
     const check = async () => {
+      if (backendStatus === 'waking') return;
       const health = await realBackendApi.checkHealth();
       if (mounted) {
         setIsBackendConnected(!!health);
+        setBackendStatus(health ? 'connected' : 'offline');
       }
     };
     check();
-    const interval = setInterval(check, 5000);
+    const interval = setInterval(check, 6000);
     return () => {
       mounted = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [backendStatus]);
+
+  const wakeUpBackend = async (): Promise<boolean> => {
+    setBackendStatus('waking');
+    setWakeUpElapsed(0);
+    const startTime = Date.now();
+    const timerInterval = setInterval(() => {
+      setWakeUpElapsed(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+
+    const maxWaitMs = 90000;
+    try {
+      while (Date.now() - startTime < maxWaitMs) {
+        try {
+          const health = await realBackendApi.checkHealth();
+          if (health) {
+            clearInterval(timerInterval);
+            setIsBackendConnected(true);
+            setBackendStatus('connected');
+            return true;
+          }
+        } catch {
+          // container is booting on Render
+        }
+        await new Promise(r => setTimeout(r, 2500));
+      }
+    } finally {
+      clearInterval(timerInterval);
+    }
+
+    setBackendStatus('offline');
+    setIsBackendConnected(false);
+    return false;
+  };
 
   const clearRealAssessment = () => {
     setState(getInitialState());
@@ -104,7 +145,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // Fetch audit events scoped to this assessment only (not the full global vault)
       let auditRecords: AuditEvent[] = [];
       try {
-        const auditRes = await fetch(`/api/assessments/${assessmentId}/audit`);
+        const auditRes = await fetch(getApiEndpoint(`/api/assessments/${assessmentId}/audit`));
         if (auditRes.ok) {
           const data = await auditRes.json();
           if (data.records && Array.isArray(data.records)) {
@@ -371,6 +412,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setDemoStep,
         runFullDemoSequence,
         isBackendConnected,
+        backendStatus,
+        wakeUpElapsed,
+        wakeUpBackend,
         assessmentProgress,
         runRealAssessment,
         loadRealAssessment,

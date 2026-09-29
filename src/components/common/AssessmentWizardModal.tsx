@@ -8,7 +8,15 @@ interface AssessmentWizardModalProps {
 }
 
 export const AssessmentWizardModal: React.FC<AssessmentWizardModalProps> = ({ isOpen, onClose }) => {
-  const { isBackendConnected, runRealAssessment, assessmentProgress, setActivePage } = useApp();
+  const {
+    isBackendConnected,
+    backendStatus,
+    wakeUpElapsed,
+    wakeUpBackend,
+    runRealAssessment,
+    assessmentProgress,
+    setActivePage
+  } = useApp();
 
   const [step, setStep] = useState<number>(1);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -190,6 +198,42 @@ export const AssessmentWizardModal: React.FC<AssessmentWizardModalProps> = ({ is
           <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-2">
             <span className="material-symbols-outlined text-[16px] text-red-600">error</span>
             <span className="font-medium">{errorMsg}</span>
+          </div>
+        )}
+
+        {/* Backend Inactive / Warmup Notice */}
+        {backendStatus === 'waking' && (
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="material-symbols-outlined text-[18px] animate-spin text-amber-700">sync</span>
+              <div>
+                <span className="font-semibold block text-amber-950">Waking up TrustCV Engine on Render...</span>
+                <span className="text-amber-800 text-[11px]">Free tier instances take ~30-45s to boot. Elapsed: {wakeUpElapsed}s</span>
+              </div>
+            </div>
+            <span className="font-mono px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-semibold border border-amber-200">
+              WARMING UP
+            </span>
+          </div>
+        )}
+
+        {backendStatus === 'offline' && (
+          <div className="p-3 rounded-xl bg-surface-container-low border border-surface-container-high text-on-surface text-xs flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500"></span>
+              <div>
+                <span className="font-semibold block">Engine is Sleeping (Render Inactivity)</span>
+                <span className="text-secondary text-[11px]">Waking up the server ensures dataset verification and model inspection run live.</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => wakeUpBackend()}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary text-on-primary text-xs font-semibold hover:bg-primary-container transition-colors shadow-xs shrink-0"
+            >
+              <span className="material-symbols-outlined text-[14px]">bolt</span>
+              <span>Wake Up Engine</span>
+            </button>
           </div>
         )}
 
