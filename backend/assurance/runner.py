@@ -165,6 +165,9 @@ def run_assessment_sync(
         update_assessment_status(assessment_id, "ANALYZING_SHIFT")
         shift_engine = DistributionShiftEngine(dataset_dir, ref_dir)
         shift_result = shift_engine.analyze()
+        shift_result["has_reference"] = True
+        shift_result["reference_baseline_provided"] = True
+        shift_result["analyzed"] = True
 
         add_audit_record(
             event=f"Distribution Shift Analyzed: MMD {shift_result['mmd_value']}",

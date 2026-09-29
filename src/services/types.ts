@@ -115,6 +115,14 @@ export interface ProvenanceResult {
   };
 }
 
+export interface FeatureDivergenceItem {
+  name: string;
+  baseline: string;
+  observed: string;
+  shift_pct: number;
+  severity: 'NOMINAL' | 'MODERATE' | 'CRITICAL';
+}
+
 export interface DistributionShiftResult {
   riskScore: number;
   status: EngineVerificationStatus;
@@ -130,6 +138,12 @@ export interface DistributionShiftResult {
   cameraCleanliness: string;
   lensOcclusion: string;
   recommendedMitigation: string;
+  densityBins?: {
+    current: number[];
+    reference: number[];
+    labels: string[];
+  };
+  featureBreakdown?: FeatureDivergenceItem[];
 }
 
 export interface AuditRecord {

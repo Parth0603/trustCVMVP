@@ -4,16 +4,39 @@ import { distributionApi } from '../services/distributionApi';
 import { DistributionShiftResult } from '../services/types';
 import { EvidenceDrawer } from '../components/common/EvidenceDrawer';
 import { AssessmentWizardModal } from '../components/common/AssessmentWizardModal';
+import { realBackendApi } from '../services/realBackendApi';
+
+import { DistributionShiftGraph } from '../components/distribution/DistributionShiftGraph';
 
 export const DistributionShiftPage: React.FC = () => {
-  const { state, setActivePage } = useApp();
+  const { state, setActivePage, runRealAssessment } = useApp();
   const [shiftReport, setShiftReport] = useState<DistributionShiftResult | null>(null);
   const [isEvidenceOpen, setIsEvidenceOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState<number>(3);
+  const [isRunningQuickShift, setIsRunningQuickShift] = useState(false);
+  const [quickError, setQuickError] = useState<string | null>(null);
 
   useEffect(() => {
     distributionApi.getDistributionShiftReport(state).then(setShiftReport);
   }, [state]);
+
+  const handleRunQuickShift = async () => {
+    setIsRunningQuickShift(true);
+    setQuickError(null);
+    try {
+      // 1. Ensure target dataset is ready
+      const ds = await realBackendApi.selectPresetDataset('coco_traffic');
+      // 2. Select attested reference baseline
+      const ref = await realBackendApi.selectPresetReference('daylight_highway');
+      // 3. Execute real assurance suite with distribution shift engine
+      await runRealAssessment(ds.upload_id, undefined, ref.upload_id);
+    } catch (err: any) {
+      setQuickError(err.message || 'Failed to execute quick distribution shift assessment.');
+    } finally {
+      setIsRunningQuickShift(false);
+    }
+  };
 
   // EMPTY STATE: No reference baseline provided / not analyzed
   if (!shiftReport) {
@@ -28,18 +51,48 @@ export const DistributionShiftPage: React.FC = () => {
         <h2 className="text-2xl font-semibold text-on-surface tracking-tight mb-2">
           Not analyzed
         </h2>
-        <p className="text-sm text-secondary mb-8 max-w-md">
+        <p className="text-sm text-secondary mb-6 max-w-md">
           Upload a reference dataset to compare distributions. TRUST-CV calculates mathematical divergence metrics (Maximum Mean Discrepancy &amp; Wasserstein Distance) between reference and incoming streams.
         </p>
-        <button
-          onClick={() => setIsWizardOpen(true)}
-          className="px-6 py-2.5 rounded-lg bg-primary text-on-primary hover:bg-primary-container transition-all font-medium text-sm shadow-xs flex items-center gap-2"
-          type="button"
-        >
-          <span className="material-symbols-outlined text-[18px]">upload_file</span>
-          <span>Upload Reference Dataset</span>
-        </button>
-        <AssessmentWizardModal isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} />
+
+        {quickError && (
+          <div className="mb-4 p-3 bg-rose-50 text-rose-800 text-xs rounded-lg border border-rose-200">
+            {quickError}
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <button
+            onClick={handleRunQuickShift}
+            disabled={isRunningQuickShift}
+            className="px-6 py-2.5 rounded-lg bg-primary text-on-primary hover:bg-primary-container transition-all font-medium text-sm shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-60"
+            type="button"
+          >
+            <span className={`material-symbols-outlined text-[18px] ${isRunningQuickShift ? 'animate-spin' : ''}`}>
+              {isRunningQuickShift ? 'sync' : 'play_circle'}
+            </span>
+            <span>{isRunningQuickShift ? 'Calculating Divergence...' : 'Run Quick Shift Demo'}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setWizardStep(3);
+              setIsWizardOpen(true);
+            }}
+            disabled={isRunningQuickShift}
+            className="px-5 py-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface border border-surface-container-high transition-all font-medium text-sm shadow-xs flex items-center gap-2 cursor-pointer"
+            type="button"
+          >
+            <span className="material-symbols-outlined text-[18px]">tune</span>
+            <span>Choose / Upload Baseline</span>
+          </button>
+        </div>
+
+        <AssessmentWizardModal
+          isOpen={isWizardOpen}
+          initialStep={wizardStep}
+          onClose={() => setIsWizardOpen(false)}
+        />
       </div>
     );
   }
@@ -65,6 +118,16 @@ export const DistributionShiftPage: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setWizardStep(3);
+              setIsWizardOpen(true);
+            }}
+            className="px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container border border-surface-container-high text-xs font-medium text-on-surface flex items-center gap-1.5 transition-colors"
+          >
+            <span className="material-symbols-outlined text-[15px]">swap_horiz</span>
+            <span>Change Baseline</span>
+          </button>
           <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
             shiftReport.riskScore > 30
               ? 'bg-amber-100 text-amber-800 border-amber-200'
@@ -105,6 +168,9 @@ export const DistributionShiftPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Real Distribution Shift Graph (KDE Density Curve & Dimension Variance) */}
+      <DistributionShiftGraph shiftReport={shiftReport} />
+
       {/* Statistical Distance Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-space-md">
         <div className="bg-surface-container-lowest rounded-xl p-space-md shadow-xs border border-surface-container-high">
@@ -139,7 +205,11 @@ export const DistributionShiftPage: React.FC = () => {
       </div>
 
       <EvidenceDrawer isOpen={isEvidenceOpen} onClose={() => setIsEvidenceOpen(false)} />
-      <AssessmentWizardModal isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} />
+      <AssessmentWizardModal
+        isOpen={isWizardOpen}
+        initialStep={wizardStep}
+        onClose={() => setIsWizardOpen(false)}
+      />
     </div>
   );
 };

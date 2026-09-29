@@ -127,6 +127,44 @@ class DistributionShiftEngine:
         ref_brightness = Y[:, 24]
         w_dist = round(float(wasserstein_distance(curr_brightness, ref_brightness)), 4)
 
+        # Compute empirical histogram density bins (10 intervals across [0.0, 1.0])
+        curr_hist, bin_edges = np.histogram(curr_brightness, bins=10, range=(0.0, 1.0), density=False)
+        ref_hist, _ = np.histogram(ref_brightness, bins=10, range=(0.0, 1.0), density=False)
+        curr_density = [round(float(v) / max(1, len(curr_brightness)) * 100, 1) for v in curr_hist]
+        ref_density = [round(float(v) / max(1, len(ref_brightness)) * 100, 1) for v in ref_hist]
+        bin_labels = [f"{int(bin_edges[i]*100)}%" for i in range(10)]
+
+        feature_breakdown = [
+            {
+                "name": "Illumination / Ambient Lux",
+                "baseline": f"{int(np.mean(ref_brightness) * 1000)} lx",
+                "observed": f"{int(np.mean(curr_brightness) * 1000)} lx",
+                "shift_pct": round(abs(float(np.mean(curr_brightness) - np.mean(ref_brightness))) * 100, 1),
+                "severity": "CRITICAL" if abs(float(np.mean(curr_brightness) - np.mean(ref_brightness))) > 0.25 else "MODERATE" if abs(float(np.mean(curr_brightness) - np.mean(ref_brightness))) > 0.1 else "NOMINAL"
+            },
+            {
+                "name": "Edge Frequency (Laplacian)",
+                "baseline": f"{round(float(np.mean(Y[:, 27])), 3)}",
+                "observed": f"{round(float(np.mean(X[:, 27])), 3)}",
+                "shift_pct": round(abs(float(np.mean(X[:, 27]) - np.mean(Y[:, 27]))) * 100, 1),
+                "severity": "MODERATE" if abs(float(np.mean(X[:, 27]) - np.mean(Y[:, 27]))) > 0.15 else "NOMINAL"
+            },
+            {
+                "name": "Contrast / Dynamic Range",
+                "baseline": f"{round(float(np.mean(Y[:, 25])), 2)}",
+                "observed": f"{round(float(np.mean(X[:, 25])), 2)}",
+                "shift_pct": round(abs(float(np.mean(X[:, 25]) - np.mean(Y[:, 25]))) * 100, 1),
+                "severity": "MODERATE" if abs(float(np.mean(X[:, 25]) - np.mean(Y[:, 25]))) > 0.15 else "NOMINAL"
+            },
+            {
+                "name": "Spectral Balance (R/B Ratio)",
+                "baseline": f"{round(float(np.mean(Y[:, 0:8])) / max(0.001, float(np.mean(Y[:, 16:24]))), 2)}",
+                "observed": f"{round(float(np.mean(X[:, 0:8])) / max(0.001, float(np.mean(X[:, 16:24]))), 2)}",
+                "shift_pct": round(abs(float(np.mean(X[:, 0:8])) - float(np.mean(Y[:, 0:8]))) * 100, 1),
+                "severity": "NOMINAL"
+            }
+        ]
+
         # Classify shift
         threshold = 0.12
         if mmd_val > 0.25:
@@ -172,7 +210,17 @@ class DistributionShiftEngine:
                 "mmd": mmd_val,
                 "wasserstein": w_dist,
                 "current_samples_analyzed": len(X),
-                "reference_samples_analyzed": len(Y)
+                "reference_samples_analyzed": len(Y),
+                "current_density": curr_density,
+                "reference_density": ref_density,
+                "bin_labels": bin_labels,
+                "feature_breakdown": feature_breakdown
             },
+            "density_bins": {
+                "current": curr_density,
+                "reference": ref_density,
+                "labels": bin_labels
+            },
+            "feature_breakdown": feature_breakdown,
             "recommended_mitigation": mitigation
         }

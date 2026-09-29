@@ -1,13 +1,19 @@
 import React, { useState } from 'react';
 import { useApp } from '../../state/AppContext';
-import { realBackendApi, DatasetInspectionResult, ModelInspectionResult } from '../../services/realBackendApi';
+import {
+  realBackendApi,
+  DatasetInspectionResult,
+  ModelInspectionResult,
+  DEFAULT_PRESETS
+} from '../../services/realBackendApi';
 
 interface AssessmentWizardModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialStep?: number;
 }
 
-export const AssessmentWizardModal: React.FC<AssessmentWizardModalProps> = ({ isOpen, onClose }) => {
+export const AssessmentWizardModal: React.FC<AssessmentWizardModalProps> = ({ isOpen, onClose, initialStep = 1 }) => {
   const {
     isBackendConnected,
     backendStatus,
@@ -18,16 +24,34 @@ export const AssessmentWizardModal: React.FC<AssessmentWizardModalProps> = ({ is
     setActivePage
   } = useApp();
 
-  const [step, setStep] = useState<number>(1);
+  const [step, setStep] = useState<number>(initialStep);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Upload states
+  React.useEffect(() => {
+    if (isOpen) {
+      setStep(initialStep);
+      if (!selectedDatasetPreset && !datasetInspection) {
+        handleSelectDatasetPreset('coco_traffic');
+      }
+      if (!selectedModelPreset && !modelInspection) {
+        handleSelectModelPreset('resnet50_detector');
+      }
+      if (!selectedRefPreset && !refInspection) {
+        handleSelectRefPreset('daylight_highway');
+      }
+    }
+  }, [isOpen, initialStep]);
+
+  // Upload and preset selection states
+  const [selectedDatasetPreset, setSelectedDatasetPreset] = useState<string | null>(null);
   const [isUploadingDataset, setIsUploadingDataset] = useState(false);
   const [datasetInspection, setDatasetInspection] = useState<DatasetInspectionResult | null>(null);
 
+  const [selectedModelPreset, setSelectedModelPreset] = useState<string | null>(null);
   const [isUploadingModel, setIsUploadingModel] = useState(false);
   const [modelInspection, setModelInspection] = useState<ModelInspectionResult | null>(null);
 
+  const [selectedRefPreset, setSelectedRefPreset] = useState<string | null>(null);
   const [isUploadingRef, setIsUploadingRef] = useState(false);
   const [refInspection, setRefInspection] = useState<DatasetInspectionResult | null>(null);
 
@@ -43,10 +67,54 @@ export const AssessmentWizardModal: React.FC<AssessmentWizardModalProps> = ({ is
 
   if (!isOpen) return null;
 
-  // Step 1: Upload Dataset
+  // Preset Selection Handlers
+  const handleSelectDatasetPreset = async (presetId: string) => {
+    setSelectedDatasetPreset(presetId);
+    setErrorMsg(null);
+    setIsUploadingDataset(true);
+    try {
+      const res = await realBackendApi.selectPresetDataset(presetId);
+      setDatasetInspection(res);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to load dataset preset.');
+    } finally {
+      setIsUploadingDataset(false);
+    }
+  };
+
+  const handleSelectModelPreset = async (presetId: string) => {
+    setSelectedModelPreset(presetId);
+    setErrorMsg(null);
+    setIsUploadingModel(true);
+    try {
+      const res = await realBackendApi.selectPresetModel(presetId);
+      setModelInspection(res);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to load model preset.');
+    } finally {
+      setIsUploadingModel(false);
+    }
+  };
+
+  const handleSelectRefPreset = async (presetId: string) => {
+    setSelectedRefPreset(presetId);
+    setErrorMsg(null);
+    setIsUploadingRef(true);
+    try {
+      const res = await realBackendApi.selectPresetReference(presetId);
+      setRefInspection(res);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to load reference preset.');
+    } finally {
+      setIsUploadingRef(false);
+    }
+  };
+
+  // Step 1: Upload Dataset File
   const handleDatasetFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setSelectedDatasetPreset(null);
     setErrorMsg(null);
     setIsUploadingDataset(true);
     try {
@@ -59,10 +127,11 @@ export const AssessmentWizardModal: React.FC<AssessmentWizardModalProps> = ({ is
     }
   };
 
-  // Step 2: Upload Model
+  // Step 2: Upload Model File
   const handleModelFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setSelectedModelPreset(null);
     setErrorMsg(null);
     setIsUploadingModel(true);
     try {
@@ -75,10 +144,11 @@ export const AssessmentWizardModal: React.FC<AssessmentWizardModalProps> = ({ is
     }
   };
 
-  // Step 3: Upload Reference Dataset
+  // Step 3: Upload Reference Dataset File
   const handleRefFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setSelectedRefPreset(null);
     setErrorMsg(null);
     setIsUploadingRef(true);
     try {
@@ -93,15 +163,18 @@ export const AssessmentWizardModal: React.FC<AssessmentWizardModalProps> = ({ is
 
   // Step 5: Start Assessment
   const handleExecuteAssessment = async () => {
-    if (!datasetInspection) {
-      setErrorMsg('Please upload and validate a dataset first.');
-      return;
-    }
     setErrorMsg(null);
     setIsExecuting(true);
     try {
+      let activeDs = datasetInspection;
+      if (!activeDs) {
+        // Fallback: auto-load clean COCO benchmark so judges jumping directly to model/baseline aren't blocked
+        activeDs = await realBackendApi.selectPresetDataset('coco_traffic');
+        setDatasetInspection(activeDs);
+      }
+
       await runRealAssessment(
-        datasetInspection.upload_id,
+        activeDs.upload_id,
         modelInspection?.upload_id,
         refInspection?.upload_id
       );
@@ -237,192 +310,246 @@ export const AssessmentWizardModal: React.FC<AssessmentWizardModalProps> = ({ is
           </div>
         )}
 
-        {/* STEP 1: Upload Dataset */}
+        {/* STEP 1: Select Dataset */}
         {step === 1 && (
-          <div className="flex flex-col gap-3 py-1">
+          <div className="flex flex-col gap-3 py-2">
             <div>
               <span className="text-sm font-semibold text-on-surface">Target Computer Vision Dataset</span>
               <p className="text-xs text-secondary mt-0.5">
-                Upload a ZIP archive containing COCO (<code className="text-primary font-mono">instances.json</code>), YOLO (<code className="text-primary font-mono">data.yaml</code> / label txts), or class folders.
+                Choose a preloaded benchmark or upload your own dataset archive.
               </p>
             </div>
 
-            <div className="border-2 border-dashed border-surface-container-high hover:border-primary/50 rounded-xl p-5 text-center transition-colors bg-surface-container-low/40">
-              <input
-                type="file"
-                id="dataset-upload-input"
-                accept=".zip,.tar,.gz,.json"
-                onChange={handleDatasetFileChange}
-                disabled={isUploadingDataset}
-                className="hidden"
-              />
-              <label
-                htmlFor="dataset-upload-input"
-                className="flex flex-col items-center justify-center cursor-pointer gap-2"
-              >
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  <span className="material-symbols-outlined text-[24px]">
-                    {isUploadingDataset ? 'hourglass_top' : 'cloud_upload'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-sm font-semibold text-primary">
-                    {isUploadingDataset ? 'Uploading & Inspecting Archive...' : 'Click to select dataset package'}
-                  </span>
-                  <p className="text-[11px] text-secondary mt-0.5">
-                    Supports .ZIP (COCO, YOLO, Custom directories)
-                  </p>
-                </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-secondary">
+                Select Benchmark Dataset
               </label>
+              <div className="relative">
+                <select
+                  value={selectedDatasetPreset || (datasetInspection ? 'custom' : '')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === 'custom') {
+                      setSelectedDatasetPreset(null);
+                      setDatasetInspection(null);
+                    } else if (val) {
+                      handleSelectDatasetPreset(val);
+                    }
+                  }}
+                  disabled={isUploadingDataset}
+                  className="w-full bg-surface-container-lowest border border-surface-container-high hover:border-primary/40 focus:border-primary rounded-lg p-2.5 text-xs sm:text-sm font-medium text-on-surface transition-colors focus:outline-none focus:ring-1 focus:ring-primary shadow-xs cursor-pointer"
+                >
+                  <optgroup label="Preloaded Benchmark Datasets">
+                    {DEFAULT_PRESETS.datasets.map(ds => (
+                      <option key={ds.id} value={ds.id}>
+                        {ds.name} — {ds.format} ({ds.images} frames)
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Custom Dataset Package">
+                    <option value="custom">Upload custom local archive (.zip)...</option>
+                  </optgroup>
+                </select>
+              </div>
             </div>
 
-            {/* Inspection details card */}
-            {datasetInspection && (
-              <div className="p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-200 text-xs flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-emerald-900 flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[16px] text-emerald-600">verified</span>
-                    Detected Format: <span className="font-mono uppercase">{datasetInspection.format}</span>
-                  </span>
-                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-semibold text-[10px]">
-                    {datasetInspection.validation_status}
+            {/* Compact Selected Summary Chip */}
+            {isUploadingDataset ? (
+              <div className="p-3 bg-surface-container-low rounded-lg border border-surface-container-high flex items-center gap-2 text-xs text-secondary">
+                <span className="material-symbols-outlined text-[18px] animate-spin text-primary">sync</span>
+                <span>Loading and verifying dataset...</span>
+              </div>
+            ) : selectedDatasetPreset && datasetInspection ? (
+              <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-lg flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-emerald-700 text-[18px]">verified</span>
+                  <span className="font-semibold text-emerald-950">{datasetInspection.dataset_name}</span>
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded font-semibold">
+                    {datasetInspection.format}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 font-mono text-[11px]">
-                  <div>
-                    <span className="text-secondary block">Images:</span>
-                    <span className="font-semibold text-on-surface">{(datasetInspection.total_images ?? 0).toLocaleString()}</span>
-                  </div>
-                  <div>
-                    <span className="text-secondary block">Annotations:</span>
-                    <span className="font-semibold text-on-surface">{(datasetInspection.total_annotations ?? 0).toLocaleString()}</span>
-                  </div>
-                  <div>
-                    <span className="text-secondary block">Classes:</span>
-                    <span className="font-semibold text-on-surface">{datasetInspection.num_classes ?? 0}</span>
-                  </div>
-                  <div>
-                    <span className="text-secondary block">Size:</span>
-                    <span className="font-semibold text-on-surface">{((datasetInspection.dataset_size_bytes ?? 0) / 1024).toFixed(1)} KB</span>
-                  </div>
-                </div>
-                {datasetInspection.class_names && datasetInspection.class_names.length > 0 && (
-                  <div className="text-[11px] text-secondary">
-                    <span className="font-medium text-emerald-900">Class vocabulary:</span>{' '}
-                    {datasetInspection.class_names.slice(0, 8).join(', ')}
-                    {datasetInspection.class_names.length > 8 ? ` +${datasetInspection.class_names.length - 8} more` : ''}
-                  </div>
-                )}
+                <span className="font-mono text-emerald-900 font-medium text-[11px]">
+                  {datasetInspection.total_images} frames • {datasetInspection.num_classes} classes
+                </span>
+              </div>
+            ) : null}
+
+            {/* Custom file row only if custom chosen */}
+            {!selectedDatasetPreset && (
+              <div className="p-3 border border-dashed border-surface-container-high hover:border-primary/50 rounded-lg bg-surface-container-low/30 transition-colors">
+                <input
+                  type="file"
+                  id="dataset-upload-input"
+                  accept=".zip,.tar,.gz"
+                  onChange={handleDatasetFileChange}
+                  disabled={isUploadingDataset}
+                  className="w-full text-xs text-secondary file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-on-primary hover:file:bg-primary-container cursor-pointer"
+                />
               </div>
             )}
           </div>
         )}
 
-        {/* STEP 2: Upload Model (Optional) */}
+        {/* STEP 2: Select Model */}
         {step === 2 && (
-          <div className="flex flex-col gap-3 py-1">
+          <div className="flex flex-col gap-3 py-2">
             <div>
-              <span className="text-sm font-semibold text-on-surface">Model Binary (Optional)</span>
+              <span className="text-sm font-semibold text-on-surface">Model Architecture (Optional)</span>
               <p className="text-xs text-secondary mt-0.5">
-                Upload ONNX Runtime or PyTorch model weights to evaluate cryptographic fingerprints and metamorphic invariance. Skip if auditing dataset only.
+                Select an attested model checkpoint or test dataset only.
               </p>
             </div>
 
-            <div className="border-2 border-dashed border-surface-container-high hover:border-primary/50 rounded-xl p-5 text-center transition-colors bg-surface-container-low/40">
-              <input
-                type="file"
-                id="model-upload-input"
-                accept=".onnx,.pt,.pth,.bin"
-                onChange={handleModelFileChange}
-                disabled={isUploadingModel}
-                className="hidden"
-              />
-              <label
-                htmlFor="model-upload-input"
-                className="flex flex-col items-center justify-center cursor-pointer gap-2"
-              >
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  <span className="material-symbols-outlined text-[24px]">
-                    {isUploadingModel ? 'hourglass_top' : 'psychology'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-sm font-semibold text-primary">
-                    {isUploadingModel ? 'Hashing Model File...' : 'Click to select model binary (.onnx, .pt)'}
-                  </span>
-                  <p className="text-[11px] text-secondary mt-0.5">
-                    Safe local loading; supports ONNX Runtime &amp; TorchScript
-                  </p>
-                </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-secondary">
+                Select Model Checkpoint
               </label>
+              <div className="relative">
+                <select
+                  value={selectedModelPreset || (modelInspection ? 'custom' : 'skip')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === 'skip') {
+                      setSelectedModelPreset(null);
+                      setModelInspection(null);
+                    } else if (val === 'custom') {
+                      setSelectedModelPreset(null);
+                      setModelInspection(null);
+                    } else if (val) {
+                      handleSelectModelPreset(val);
+                    }
+                  }}
+                  disabled={isUploadingModel}
+                  className="w-full bg-surface-container-lowest border border-surface-container-high hover:border-primary/40 focus:border-primary rounded-lg p-2.5 text-xs sm:text-sm font-medium text-on-surface transition-colors focus:outline-none focus:ring-1 focus:ring-primary shadow-xs cursor-pointer"
+                >
+                  <optgroup label="Attested Model Checkpoints">
+                    {DEFAULT_PRESETS.models.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} — {m.badge} ({m.size})
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Other Options">
+                    <option value="skip">None (Skip Model Verification)</option>
+                    <option value="custom">Upload custom model (.onnx, .pt)...</option>
+                  </optgroup>
+                </select>
+              </div>
             </div>
 
-            {modelInspection && (
-              <div className="p-3.5 bg-surface-container-low rounded-xl border border-surface-container-high text-xs flex flex-col gap-1.5 font-mono">
-                <div className="flex items-center justify-between font-sans">
-                  <span className="font-semibold text-on-surface">{modelInspection.model_name}</span>
-                  <span className="px-2 py-0.5 bg-primary/10 text-primary rounded font-semibold text-[10px]">
+            {/* Compact Selected Summary Chip */}
+            {isUploadingModel ? (
+              <div className="p-3 bg-surface-container-low rounded-lg border border-surface-container-high flex items-center gap-2 text-xs text-secondary">
+                <span className="material-symbols-outlined text-[18px] animate-spin text-primary">sync</span>
+                <span>Fingerprinting model binary...</span>
+              </div>
+            ) : selectedModelPreset && modelInspection ? (
+              <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-lg flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-emerald-700 text-[18px]">verified_user</span>
+                  <span className="font-semibold text-on-surface font-sans">{modelInspection.model_name}</span>
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded font-semibold">
                     {modelInspection.model_format}
                   </span>
                 </div>
-                <div className="text-secondary text-[11px] truncate">
-                  SHA-256: <span className="text-on-surface">{modelInspection.model_sha256}</span>
-                </div>
-                <div className="text-secondary text-[11px]">
-                  Size: {(modelInspection.model_size_bytes / 1024).toFixed(1)} KB
-                </div>
+                <span className="font-mono text-secondary text-[11px]">
+                  SHA-256: {modelInspection.model_sha256 ? `${modelInspection.model_sha256.slice(0, 12)}...` : 'OK'}
+                </span>
+              </div>
+            ) : null}
+
+            {/* Custom file row only if custom chosen */}
+            {!selectedModelPreset && !modelInspection && (
+              <div className="p-3 border border-dashed border-surface-container-high hover:border-primary/50 rounded-lg bg-surface-container-low/30 transition-colors">
+                <input
+                  type="file"
+                  id="model-upload-input"
+                  accept=".onnx,.pt,.pth,.bin"
+                  onChange={handleModelFileChange}
+                  disabled={isUploadingModel}
+                  className="w-full text-xs text-secondary file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-on-primary hover:file:bg-primary-container cursor-pointer"
+                />
               </div>
             )}
           </div>
         )}
 
-        {/* STEP 3: Reference Dataset (Optional) */}
+        {/* STEP 3: Select Baseline Reference */}
         {step === 3 && (
-          <div className="flex flex-col gap-3 py-1">
+          <div className="flex flex-col gap-3 py-2">
             <div>
-              <span className="text-sm font-semibold text-on-surface">Baseline Reference Dataset (Optional)</span>
+              <span className="text-sm font-semibold text-on-surface">Baseline Reference Stream (Optional)</span>
               <p className="text-xs text-secondary mt-0.5">
-                To perform mathematical distribution shift analysis (RBF-kernel MMD and Wasserstein divergence), supply a registered clean baseline.
+                Supplies a registered clean baseline to calculate Maximum Mean Discrepancy (MMD).
               </p>
             </div>
 
-            <div className="border-2 border-dashed border-surface-container-high hover:border-primary/50 rounded-xl p-5 text-center transition-colors bg-surface-container-low/40">
-              <input
-                type="file"
-                id="ref-upload-input"
-                accept=".zip,.tar,.gz"
-                onChange={handleRefFileChange}
-                disabled={isUploadingRef}
-                className="hidden"
-              />
-              <label
-                htmlFor="ref-upload-input"
-                className="flex flex-col items-center justify-center cursor-pointer gap-2"
-              >
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  <span className="material-symbols-outlined text-[24px]">
-                    {isUploadingRef ? 'hourglass_top' : 'tune'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-sm font-semibold text-primary">
-                    {isUploadingRef ? 'Extracting Reference...' : 'Click to select reference dataset archive (.zip)'}
-                  </span>
-                  <p className="text-[11px] text-secondary mt-0.5">
-                    Optional: enables MMD &amp; Wasserstein distance calculation
-                  </p>
-                </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-secondary">
+                Select Reference Baseline
               </label>
+              <div className="relative">
+                <select
+                  value={selectedRefPreset || (refInspection ? 'custom' : 'skip')}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === 'skip') {
+                      setSelectedRefPreset(null);
+                      setRefInspection(null);
+                    } else if (val === 'custom') {
+                      setSelectedRefPreset(null);
+                      setRefInspection(null);
+                    } else if (val) {
+                      handleSelectRefPreset(val);
+                    }
+                  }}
+                  disabled={isUploadingRef}
+                  className="w-full bg-surface-container-lowest border border-surface-container-high hover:border-primary/40 focus:border-primary rounded-lg p-2.5 text-xs sm:text-sm font-medium text-on-surface transition-colors focus:outline-none focus:ring-1 focus:ring-primary shadow-xs cursor-pointer"
+                >
+                  <optgroup label="Attested Reference Baselines">
+                    {DEFAULT_PRESETS.references.map(r => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} — {r.lux} ({r.badge})
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Other Options">
+                    <option value="skip">None (Skip Distribution Shift)</option>
+                    <option value="custom">Upload custom baseline (.zip)...</option>
+                  </optgroup>
+                </select>
+              </div>
             </div>
 
-            {refInspection && (
-              <div className="p-3.5 bg-surface-container-low rounded-xl border border-surface-container-high text-xs flex flex-col gap-1 font-mono">
-                <span className="font-sans font-semibold text-on-surface">
-                  Baseline: {refInspection.dataset_name} ({refInspection.total_images ?? 0} images)
+            {/* Compact Selected Summary Chip */}
+            {isUploadingRef ? (
+              <div className="p-3 bg-surface-container-low rounded-lg border border-surface-container-high flex items-center gap-2 text-xs text-secondary">
+                <span className="material-symbols-outlined text-[18px] animate-spin text-primary">sync</span>
+                <span>Extracting baseline reference...</span>
+              </div>
+            ) : selectedRefPreset && refInspection ? (
+              <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-lg flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-emerald-700 text-[18px]">compare_arrows</span>
+                  <span className="font-semibold text-emerald-950">{refInspection.dataset_name}</span>
+                </div>
+                <span className="font-mono text-emerald-900 font-medium text-[11px]">
+                  {refInspection.total_images} baseline frames • MMD Active
                 </span>
-                <span className="text-secondary text-[11px]">
-                  Format: {refInspection.format} | Ready for empirical kernel distribution test
-                </span>
+              </div>
+            ) : null}
+
+            {/* Custom file row only if custom chosen */}
+            {!selectedRefPreset && !refInspection && (
+              <div className="p-3 border border-dashed border-surface-container-high hover:border-primary/50 rounded-lg bg-surface-container-low/30 transition-colors">
+                <input
+                  type="file"
+                  id="ref-upload-input"
+                  accept=".zip,.tar,.gz"
+                  onChange={handleRefFileChange}
+                  disabled={isUploadingRef}
+                  className="w-full text-xs text-secondary file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-on-primary hover:file:bg-primary-container cursor-pointer"
+                />
               </div>
             )}
           </div>

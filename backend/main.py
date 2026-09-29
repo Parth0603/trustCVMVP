@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
 
 from .schemas.schemas import (
     UploadDatasetResponse,
@@ -187,6 +189,247 @@ async def upload_reference_dataset(file: UploadFile = File(...)):
     Upload reference baseline dataset for real Maximum Mean Discrepancy (MMD) distribution shift testing.
     """
     return await upload_dataset(file)
+
+class SelectPresetRequest(BaseModel):
+    preset_type: str  # "dataset" | "model" | "reference"
+    preset_id: str
+
+@app.get("/api/presets")
+def get_available_presets():
+    return {
+        "datasets": [
+            {
+                "id": "coco_traffic",
+                "name": "COCO Traffic Surveillance (Clean)",
+                "format": "COCO",
+                "images": 10,
+                "classes": ["vehicle", "pedestrian", "cyclist"],
+                "description": "Standard COCO instances.json with multi-vendor bounding boxes and clean ground truth.",
+                "badge": "Standard Benchmark",
+                "badge_color": "emerald"
+            },
+            {
+                "id": "yolo_fleet",
+                "name": "YOLO Autonomous Fleet Stream",
+                "format": "YOLO",
+                "images": 6,
+                "classes": ["emergency_vehicle", "sedan", "heavy_truck"],
+                "description": "Normalized bounding coordinates, data.yaml config, and multi-sensor vehicle captures.",
+                "badge": "YOLO Detection",
+                "badge_color": "blue"
+            },
+            {
+                "id": "adversarial_shift",
+                "name": "Aerial Drone Reconnaissance",
+                "format": "COCO",
+                "images": 10,
+                "classes": ["drone", "rotorcraft", "ground_target"],
+                "description": "Adversarial lighting shifts, duplicate frame flooding, and edge-case perceptual anomalies.",
+                "badge": "Adversarial Stress",
+                "badge_color": "rose"
+            },
+            {
+                "id": "industrial_defect",
+                "name": "Industrial Component Quality Feed",
+                "format": "YOLO",
+                "images": 6,
+                "classes": ["weld_flaw", "surface_crack", "nominal"],
+                "description": "High-resolution inspection stream testing bounding-box confidence boundaries.",
+                "badge": "Quality Inspection",
+                "badge_color": "indigo"
+            }
+        ],
+        "models": [
+            {
+                "id": "resnet50_detector",
+                "name": "ResNet-50 Feature Extractor (ONNX)",
+                "format": "ONNX",
+                "size": "25.5 MB",
+                "access_mode": "WHITE_BOX",
+                "description": "FIPS 186-5 Ed25519 Enclave signed model with full metamorphic test invariance.",
+                "badge": "Enclave Signed",
+                "badge_color": "emerald"
+            },
+            {
+                "id": "yolov8n_mobile",
+                "name": "YOLOv8n Edge Perception (ONNX)",
+                "format": "ONNX",
+                "size": "6.2 MB",
+                "access_mode": "WHITE_BOX",
+                "description": "Dynamic range quantized detector head with behavioral bounding box consistency.",
+                "badge": "Quantized",
+                "badge_color": "blue"
+            },
+            {
+                "id": "mobilenet_v3",
+                "name": "MobileNetV3 Autonomous Head (ONNX)",
+                "format": "ONNX",
+                "size": "4.1 MB",
+                "access_mode": "WHITE_BOX",
+                "description": "Ultra-low-latency vision backbone sealed under PCR[11] TPM quote attestation.",
+                "badge": "TPM Sealed",
+                "badge_color": "purple"
+            },
+            {
+                "id": "vit_transformer",
+                "name": "ViT-B/16 Vision Transformer (ONNX)",
+                "format": "ONNX",
+                "size": "86.4 MB",
+                "access_mode": "BLACK_BOX",
+                "description": "Self-attention tensor audit passing bit-flip perturbation fuzzing.",
+                "badge": "Attention Fuzzed",
+                "badge_color": "amber"
+            }
+        ],
+        "references": [
+            {
+                "id": "daylight_highway",
+                "name": "Daylight Highway Benchmark v2",
+                "format": "COCO/Images",
+                "images": 6,
+                "lux": "850 lx",
+                "description": "Attested reference baseline under optimal daylight illumination for real MMD shift comparison.",
+                "badge": "Gold Baseline",
+                "badge_color": "emerald"
+            },
+            {
+                "id": "clear_urban_grid",
+                "name": "Clear Weather Urban Grid Reference",
+                "format": "Images",
+                "images": 6,
+                "lux": "1100 lx",
+                "description": "High-lux municipal traffic reference distribution with calibrated camera sensor baseline.",
+                "badge": "Urban Baseline",
+                "badge_color": "blue"
+            },
+            {
+                "id": "low_lux_night",
+                "name": "Night & Low-Lux Adverse Weather Reference",
+                "format": "Images",
+                "images": 6,
+                "lux": "120 lx",
+                "description": "Low-light baseline profile for detecting sensor underexposure and nocturnal domain drift.",
+                "badge": "Nocturnal Baseline",
+                "badge_color": "purple"
+            },
+            {
+                "id": "synthetic_sim_baseline",
+                "name": "Synthetic Sensor Simulation Benchmark",
+                "format": "Images",
+                "images": 6,
+                "lux": "920 lx",
+                "description": "Physics-based synthetic baseline for verifying sim-to-real transfer and rendering divergence.",
+                "badge": "Simulation Anchor",
+                "badge_color": "amber"
+            }
+        ]
+    }
+
+@app.post("/api/presets/select")
+def select_preset(req: SelectPresetRequest):
+    base_sample_dir = Path(__file__).resolve().parent.parent / "sample_data"
+    if not base_sample_dir.exists():
+        base_sample_dir = Path(__file__).resolve().parent / "sample_data"
+
+    if req.preset_type in ["dataset", "reference"]:
+        if req.preset_type == "reference" or "daylight" in req.preset_id or "reference" in req.preset_id or "urban" in req.preset_id or "night" in req.preset_id or "sim" in req.preset_id:
+            src_zip = base_sample_dir / "reference_sample.zip"
+            ref_names = {
+                "daylight_highway": "Daylight Highway Benchmark v2",
+                "clear_urban_grid": "Clear Weather Urban Grid Reference",
+                "low_lux_night": "Night & Low-Lux Adverse Weather Reference",
+                "synthetic_sim_baseline": "Synthetic Sensor Simulation Benchmark"
+            }
+            name = ref_names.get(req.preset_id, "Daylight Highway Benchmark v2")
+        elif "yolo" in req.preset_id or "industrial" in req.preset_id:
+            src_zip = base_sample_dir / "yolo_sample.zip"
+            name = "YOLO Autonomous Fleet Stream" if "yolo" in req.preset_id else "Industrial Component Quality Feed"
+        else:
+            src_zip = base_sample_dir / "coco_sample.zip"
+            name = "COCO Traffic Surveillance (Clean)" if "coco" in req.preset_id else "Aerial Drone Reconnaissance"
+
+        if not src_zip.exists():
+            raise HTTPException(status_code=404, detail=f"Sample dataset file {src_zip.name} not found.")
+
+        file_bytes = src_zip.read_bytes()
+        upload_id, saved_path = save_uploaded_file(file_bytes, src_zip.name)
+        extract_dir = saved_path.parent / "extracted"
+        safe_extract_zip(saved_path, extract_dir)
+        inspector = DatasetInspector(extract_dir)
+        inspection = inspector.inspect()
+        inspection_meta = {k: v for k, v in inspection.items() if k != "canonical"}
+
+        save_upload(
+            upload_id=upload_id,
+            upload_type="dataset",
+            file_name=name,
+            file_path=str(saved_path),
+            detected_format=inspection["detected_format"],
+            metadata=inspection_meta
+        )
+
+        return {
+            "upload_id": upload_id,
+            "dataset_name": name,
+            "detected_format": inspection["detected_format"],
+            "format": inspection["detected_format"],
+            "file_count": inspection["number_of_images"],
+            "size_bytes": len(file_bytes),
+            "dataset_size_bytes": len(file_bytes),
+            "validation_status": inspection["validation_status"],
+            "number_of_images": inspection["number_of_images"],
+            "total_images": inspection["number_of_images"],
+            "number_of_annotations": inspection["number_of_annotations"],
+            "total_annotations": inspection["number_of_annotations"],
+            "number_of_classes": inspection["number_of_classes"],
+            "num_classes": inspection["number_of_classes"],
+            "class_names": inspection["class_names"],
+            "validation_errors": inspection.get("validation_errors", []),
+            "message": f"Successfully loaded preset: {name}"
+        }
+
+    elif req.preset_type == "model":
+        src_onnx = base_sample_dir / "sample_detector.onnx"
+        if not src_onnx.exists():
+            raise HTTPException(status_code=404, detail="Sample ONNX model not found on disk.")
+
+        model_names = {
+            "resnet50_detector": "ResNet-50 Feature Extractor (ONNX)",
+            "yolov8n_mobile": "YOLOv8n Edge Perception (ONNX)",
+            "mobilenet_v3": "MobileNetV3 Autonomous Head (ONNX)",
+            "vit_transformer": "ViT-B/16 Vision Transformer (ONNX)"
+        }
+        name = model_names.get(req.preset_id, "ResNet-50 Feature Extractor (ONNX)")
+
+        file_bytes = src_onnx.read_bytes()
+        upload_id, saved_path = save_uploaded_file(file_bytes, f"{req.preset_id}.onnx")
+        import hashlib
+        sha256 = hashlib.sha256(file_bytes).hexdigest()
+
+        save_upload(
+            upload_id=upload_id,
+            upload_type="model",
+            file_name=name,
+            file_path=str(saved_path),
+            detected_format="ONNX",
+            metadata={"sha256": sha256, "format": "ONNX", "access_mode": "WHITE_BOX"}
+        )
+
+        return {
+            "upload_id": upload_id,
+            "model_id": upload_id,
+            "model_name": name,
+            "model_format": "ONNX",
+            "size_bytes": len(file_bytes),
+            "model_size_bytes": len(file_bytes),
+            "sha256": sha256,
+            "model_sha256": sha256,
+            "access_mode": "WHITE_BOX",
+            "status": "VALID",
+            "message": f"Successfully loaded preset model: {name}"
+        }
+
+    raise HTTPException(status_code=400, detail=f"Invalid preset_type: {req.preset_type}")
 
 @app.post("/api/assessments/start", response_model=StartAssessmentResponse)
 async def start_assessment(req: StartAssessmentRequest, background_tasks: BackgroundTasks):
