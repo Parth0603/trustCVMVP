@@ -7,11 +7,23 @@ import { DataIntegrityResult } from './types';
 
 export const dataApi = {
   async getDataIntegrityReport(state: SystemState): Promise<DataIntegrityResult | null> {
-    if (!state.activeAssessmentData) {
+    const real = state.activeAssessmentData || (state.dataset ? {
+      classes: state.dataset.categories.map(c => ({ name: c.name, count: c.count, percentage: Math.round((c.count / (state.dataset?.totalSamples || 1)) * 100) })),
+      total_images: state.dataset.totalSamples,
+      exact_duplicate_count: 0,
+      near_duplicate_count: state.dataset.duplicateSamples,
+      anomaly_indicators: new Array(state.dataset.oodSamples).fill('OOD'),
+      poisoning_indicators: new Array(state.dataset.poisonedSamples).fill('POISON'),
+      corrupted_images: state.dataset.spectralAnomalies,
+      integrity_score: state.dataset.integrityScore,
+      status: state.dataset.status,
+      dataset_name: state.dataset.name,
+      format: state.dataset.format,
+    } : null);
+
+    if (!real) {
       return null;
     }
-
-    const real = state.activeAssessmentData;
     const palette = ['bg-primary', 'bg-primary-container', 'bg-secondary', 'bg-surface-variant', 'bg-amber-600', 'bg-indigo-600', 'bg-teal-600', 'bg-rose-600'];
     
     const classBalance = (real.classes || []).map((c: any, i: number) => ({

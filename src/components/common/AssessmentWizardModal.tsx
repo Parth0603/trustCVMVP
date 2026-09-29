@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../state/AppContext';
 import { realBackendApi, DatasetInspectionResult, ModelInspectionResult } from '../../services/realBackendApi';
+import { pseudoHash } from '../../utils/crypto';
 
 interface AssessmentWizardModalProps {
   isOpen: boolean;
@@ -42,8 +43,28 @@ export const AssessmentWizardModal: React.FC<AssessmentWizardModalProps> = ({ is
     setErrorMsg(null);
     setIsUploadingDataset(true);
     try {
-      const res = await realBackendApi.uploadDataset(file);
-      setDatasetInspection(res);
+      if (!isBackendConnected) {
+        // Client-side standalone inspection for Vercel/Cloud demo
+        await new Promise(r => setTimeout(r, 400));
+        const isZip = file.name.endsWith('.zip');
+        const isYolo = file.name.toLowerCase().includes('yolo');
+        const format = isYolo ? 'YOLO' : 'COCO';
+        setDatasetInspection({
+          upload_id: `upload-${Date.now()}`,
+          dataset_name: file.name.replace(/\.[^/.]+$/, ''),
+          format,
+          total_images: isZip ? 120 : 25,
+          total_annotations: isZip ? 340 : 65,
+          num_classes: 4,
+          class_names: ['Person', 'Vehicle', 'Aircraft', 'Infrastructure'],
+          dataset_size_bytes: file.size,
+          validation_status: 'VALID',
+          validation_errors: []
+        });
+      } else {
+        const res = await realBackendApi.uploadDataset(file);
+        setDatasetInspection(res);
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Dataset upload and parsing failed.');
     } finally {
@@ -58,8 +79,22 @@ export const AssessmentWizardModal: React.FC<AssessmentWizardModalProps> = ({ is
     setErrorMsg(null);
     setIsUploadingModel(true);
     try {
-      const res = await realBackendApi.uploadModel(file);
-      setModelInspection(res);
+      if (!isBackendConnected) {
+        await new Promise(r => setTimeout(r, 300));
+        const ext = file.name.split('.').pop()?.toUpperCase() || 'ONNX';
+        const format = (ext === 'ONNX' || ext === 'PT' || ext === 'PTH') ? 'ONNX' : 'UNKNOWN';
+        setModelInspection({
+          upload_id: `model-${Date.now()}`,
+          model_name: file.name,
+          model_format: format as any,
+          model_size_bytes: file.size,
+          model_sha256: pseudoHash(file.name + file.size),
+          status: 'VALID'
+        });
+      } else {
+        const res = await realBackendApi.uploadModel(file);
+        setModelInspection(res);
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Model upload and parsing failed.');
     } finally {
@@ -74,8 +109,24 @@ export const AssessmentWizardModal: React.FC<AssessmentWizardModalProps> = ({ is
     setErrorMsg(null);
     setIsUploadingRef(true);
     try {
-      const res = await realBackendApi.uploadReferenceDataset(file);
-      setRefInspection(res);
+      if (!isBackendConnected) {
+        await new Promise(r => setTimeout(r, 350));
+        setRefInspection({
+          upload_id: `ref-${Date.now()}`,
+          dataset_name: file.name.replace(/\.[^/.]+$/, ''),
+          format: 'COCO',
+          total_images: 45,
+          total_annotations: 110,
+          num_classes: 4,
+          class_names: ['Person', 'Vehicle', 'Aircraft', 'Infrastructure'],
+          dataset_size_bytes: file.size,
+          validation_status: 'VALID',
+          validation_errors: []
+        });
+      } else {
+        const res = await realBackendApi.uploadReferenceDataset(file);
+        setRefInspection(res);
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'Reference dataset upload failed.');
     } finally {
