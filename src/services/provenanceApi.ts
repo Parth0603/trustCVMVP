@@ -7,26 +7,12 @@ import { ProvenanceResult } from './types';
 
 export const provenanceApi = {
   async getProvenanceReport(state: SystemState): Promise<ProvenanceResult | null> {
-    const real = state.activeAssessmentProvenance || (state.inference ? {
-      score: state.inference.sealStatus === 'VERIFIED' ? 100 : 35,
-      status: state.inference.sealStatus === 'VERIFIED' ? 'VALID' : 'INVALID',
-      frame_id: state.inference.inferenceId,
-      latency_ms: 1.18,
-      input_hash: state.inference.inputHash,
-      signature: state.inference.signature,
-      signature_valid: state.inference.signatureStatus === 'VALID',
-      chain_verified: state.inference.sealStatus === 'VERIFIED',
-      sample_label: state.inference.boundingDetections[0]?.label || 'Recon UAV (Airborne)',
-      sample_confidence: state.inference.boundingDetections[0]?.confidence || 94.2,
-      sample_bbox: state.inference.boundingDetections[0]?.bbox || [18, 22, 28, 19],
-      pipeline_steps: state.inference.provenanceEvents.map((pe, idx) => ({
-        step: idx + 1,
-        name: pe.stageName,
-        verified: pe.verified
-      }))
-    } : null);
+    if (!state.activeAssessmentProvenance) {
+      return null;
+    }
 
-    if (!real || real.status === 'UNAVAILABLE') {
+    const real = state.activeAssessmentProvenance;
+    if (real.status === 'UNAVAILABLE') {
       return null;
     }
 

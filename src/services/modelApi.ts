@@ -7,22 +7,12 @@ import { ModelIntegrityResult } from './types';
 
 export const modelApi = {
   async getModelIntegrityReport(state: SystemState): Promise<ModelIntegrityResult | null> {
-    const real = state.activeAssessmentModel || (state.model ? {
-      model_name: state.model.modelName,
-      model_format: state.model.architecture,
-      sha256: state.model.modelHash,
-      fingerprint_match: state.model.fingerprintStatus === 'MATCH' ? 'MATCH' : 'MISMATCH',
-      behavioral_bounds: state.model.blackBoxStatus === 'CONSISTENT' ? 'PASS' : 'REVIEW',
-      fuzz_tests_completed: 1000,
-      fuzz_tests_total: 1000,
-      trigger_indicators: state.model.suspiciousClusterDetected ? 'SUSPICIOUS CLUSTER' : 'NONE DETECTED',
-      behavioral_consistency: '99.8%',
-      access_mode: 'WHITE_BOX',
-      score: state.model.integrityScore,
-      status: 'VALID'
-    } : null);
+    if (!state.activeAssessmentModel) {
+      return null;
+    }
 
-    if (!real || real.status === 'UNAVAILABLE' || real.model_format === 'NONE') {
+    const real = state.activeAssessmentModel;
+    if (real.status === 'UNAVAILABLE' || real.model_format === 'NONE') {
       return null;
     }
 
