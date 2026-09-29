@@ -12,9 +12,9 @@ export const PipelineWorkflow: React.FC = () => {
       name: '1. DATA',
       engine: 'DATA INTEGRITY',
       icon: Database,
-      statusText: state.dataset.status === 'VERIFIED' ? '✓ VERIFIED' : '⚠ FLAGGED',
-      statusColor: state.dataset.status === 'VERIFIED' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/20' : 'text-amber-400 border-amber-500/30 bg-amber-950/20',
-      submetric: `${state.dataset.integrityScore}% Score`
+      statusText: state.dataset ? (state.dataset.status === 'VERIFIED' ? '✓ VERIFIED' : '⚠ FLAGGED') : 'NOT ANALYZED',
+      statusColor: state.dataset?.status === 'VERIFIED' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/20' : 'text-slate-400 border-slate-700/30 bg-slate-900/20',
+      submetric: state.dataset ? `${state.dataset.integrityScore}% Score` : 'No Dataset'
     },
     {
       id: 'model',
@@ -22,9 +22,9 @@ export const PipelineWorkflow: React.FC = () => {
       name: '2. MODEL',
       engine: 'MODEL INTEGRITY',
       icon: Cpu,
-      statusText: state.model.fingerprintStatus === 'MATCH' && state.model.triggerRisk === 'LOW' ? '✓ VERIFIED' : '✕ ANOMALY',
-      statusColor: state.model.fingerprintStatus === 'MATCH' && state.model.triggerRisk === 'LOW' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/20' : 'text-rose-400 border-rose-500/30 bg-rose-950/20',
-      submetric: state.model.fingerprintStatus
+      statusText: state.model ? (state.model.fingerprintStatus === 'MATCH' && state.model.triggerRisk === 'LOW' ? '✓ VERIFIED' : '✕ ANOMALY') : 'NOT ANALYZED',
+      statusColor: state.model?.fingerprintStatus === 'MATCH' && state.model?.triggerRisk === 'LOW' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/20' : 'text-slate-400 border-slate-700/30 bg-slate-900/20',
+      submetric: state.model ? state.model.fingerprintStatus : 'No Model'
     },
     {
       id: 'inference',
@@ -32,9 +32,9 @@ export const PipelineWorkflow: React.FC = () => {
       name: '3. INFERENCE',
       engine: 'INFERENCE OUTPUT',
       icon: ImageIcon,
-      statusText: state.inference.sealStatus === 'VERIFIED' ? '✓ SIGNED' : '✕ TAMPERED',
-      statusColor: state.inference.sealStatus === 'VERIFIED' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/20' : 'text-rose-400 border-rose-500/30 bg-rose-950/20',
-      submetric: state.inference.sealStatus === 'VERIFIED' ? 'Pixel Seal OK' : 'Seal Broken'
+      statusText: state.inference ? (state.inference.sealStatus === 'VERIFIED' ? '✓ SIGNED' : '✕ TAMPERED') : 'NOT AVAILABLE',
+      statusColor: state.inference?.sealStatus === 'VERIFIED' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/20' : 'text-slate-400 border-slate-700/30 bg-slate-900/20',
+      submetric: state.inference ? (state.inference.sealStatus === 'VERIFIED' ? 'Pixel Seal OK' : 'Seal Broken') : 'No Inference'
     },
     {
       id: 'provenance',
@@ -42,9 +42,9 @@ export const PipelineWorkflow: React.FC = () => {
       name: '4. PROVENANCE',
       engine: 'HASH & MERKLE',
       icon: ShieldCheck,
-      statusText: state.inference.sealStatus === 'VERIFIED' ? '✓ CHAIN VALID' : '✕ BROKEN',
-      statusColor: state.inference.sealStatus === 'VERIFIED' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/20' : 'text-rose-400 border-rose-500/30 bg-rose-950/20',
-      submetric: 'Ed25519 Bound'
+      statusText: state.inference ? (state.inference.sealStatus === 'VERIFIED' ? '✓ CHAIN VALID' : '✕ BROKEN') : 'NOT AVAILABLE',
+      statusColor: state.inference?.sealStatus === 'VERIFIED' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/20' : 'text-slate-400 border-slate-700/30 bg-slate-900/20',
+      submetric: state.inference ? 'Ed25519 Bound' : 'Pending'
     },
     {
       id: 'distribution',
@@ -52,9 +52,9 @@ export const PipelineWorkflow: React.FC = () => {
       name: '5. ENVIRONMENT',
       engine: 'DISTRIBUTION SHIFT',
       icon: CloudSun,
-      statusText: state.distribution.currentScenario === 'NORMAL' ? '✓ NORMAL' : state.distribution.currentScenario === 'ADVERSARIAL_INPUT' ? '✕ ADVERSARIAL' : '⚠ SHIFT DETECTED',
-      statusColor: state.distribution.currentScenario === 'NORMAL' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/20' : state.distribution.currentScenario === 'ADVERSARIAL_INPUT' ? 'text-rose-400 border-rose-500/30 bg-rose-950/20' : 'text-amber-400 border-amber-500/30 bg-amber-950/20',
-      submetric: `MMD: ${state.distribution.scenarios[state.distribution.currentScenario].mmd}`
+      statusText: state.distribution ? (state.distribution.currentScenario === 'NORMAL' ? '✓ NORMAL' : state.distribution.currentScenario === 'ADVERSARIAL_INPUT' ? '✕ ADVERSARIAL' : '⚠ SHIFT DETECTED') : 'NOT ANALYZED',
+      statusColor: state.distribution?.currentScenario === 'NORMAL' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/20' : 'text-slate-400 border-slate-700/30 bg-slate-900/20',
+      submetric: state.distribution ? `MMD: ${state.distribution.scenarios[state.distribution.currentScenario]?.mmd ?? 0}` : 'No Baseline'
     },
     {
       id: 'governance',
@@ -62,9 +62,9 @@ export const PipelineWorkflow: React.FC = () => {
       name: '6. DECISION',
       engine: 'GOVERNANCE ENGINE',
       icon: Scale,
-      statusText: state.governance.status === 'ACCEPT' ? '✓ ACCEPT' : state.governance.status === 'REVIEW' ? '⚠ REVIEW' : '✕ QUARANTINE',
-      statusColor: state.governance.status === 'ACCEPT' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/30 shadow-[0_0_12px_rgba(16,185,129,0.2)]' : state.governance.status === 'REVIEW' ? 'text-amber-400 border-amber-500/30 bg-amber-950/30 shadow-[0_0_12px_rgba(245,158,11,0.2)]' : 'text-rose-400 border-rose-500/30 bg-rose-950/30 shadow-[0_0_15px_rgba(239,68,68,0.25)]',
-      submetric: `${state.governance.confidence}% Conf.`
+      statusText: state.governance ? (state.governance.status === 'ACCEPT' ? '✓ ACCEPT' : state.governance.status === 'REVIEW' ? '⚠ REVIEW' : '✕ QUARANTINE') : 'NOT ASSESSED',
+      statusColor: state.governance?.status === 'ACCEPT' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/30 shadow-[0_0_12px_rgba(16,185,129,0.2)]' : 'text-slate-400 border-slate-700/30 bg-slate-900/30',
+      submetric: state.governance ? `${state.governance.confidence}% Conf.` : 'Pending Assessment'
     }
   ];
 

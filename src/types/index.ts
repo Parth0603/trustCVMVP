@@ -156,19 +156,28 @@ export interface SneakernetState {
 }
 
 export interface SystemState {
-  dataset: DatasetState;
-  model: ModelIntegrityState;
-  inference: InferenceState;
+  dataset: DatasetState | null;
+  model: ModelIntegrityState | null;
+  inference: InferenceState | null;
   distribution: {
     currentScenario: DistributionScenarioType;
     scenarios: Record<DistributionScenarioType, DistributionScenario>;
-  };
-  governance: GovernanceDecision;
+  } | null;
+  governance: GovernanceDecision | null;
   auditEvents: AuditEvent[];
   sneakernet: SneakernetState;
   demoMode: boolean;
   judgeMode: boolean;
   demoStep: number;
-  lastUpdated: string;
-  systemTrustScore: number; // derived composite score 0-100
+  lastUpdated: string | null;
+  systemTrustScore: number | null; // derived composite score 0-100 or null
+  activeAssessmentId?: string;
+  activeAssessmentStatus?: string;
+  activeAssessmentSummary?: any;
+  activeAssessmentData?: any;
+  activeAssessmentModel?: any;
+  activeAssessmentProvenance?: any;
+  activeAssessmentShift?: any;
+  activeAssessmentReport?: any;
 }
+

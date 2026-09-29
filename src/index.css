@@ -2,70 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    background-color: #faf8ff;
+    color: #131b2e;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
 }
 
-body {
-  background-color: #070A10;
-  color: #E2E8F0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  overflow-x: hidden;
-}
-
-/* Technical grid background */
-.military-grid {
-  background-image: 
-    linear-gradient(to right, rgba(30, 41, 59, 0.25) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(30, 41, 59, 0.25) 1px, transparent 1px);
-  background-size: 32px 32px;
-}
-
-.military-grid-dense {
-  background-image: 
-    linear-gradient(to right, rgba(30, 41, 59, 0.35) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(30, 41, 59, 0.35) 1px, transparent 1px);
-  background-size: 16px 16px;
-}
-
-/* Custom scrollbars for cyber dashboards */
+/* Crisp subtle scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #090E17;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1E293B;
-  border-radius: 3px;
+  background: #c3c6d7;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #737686;
 }
 
-/* Card hover glow utilities */
-.glow-card {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid rgba(31, 46, 77, 0.6);
-  background: linear-gradient(135deg, rgba(13, 19, 34, 0.9) 0%, rgba(10, 15, 26, 0.95) 100%);
-}
-
-.glow-card:hover {
-  border-color: rgba(56, 189, 248, 0.4);
-  box-shadow: 0 4px 20px -2px rgba(14, 165, 233, 0.12);
-}
-
-/* Monospace telemetry text */
-.telemetry-mono {
-  font-family: 'JetBrains Mono', monospace;
-  font-feature-settings: "zero" 1;
-}
-
-/* Print styling for Assurance Report */
+/* Clean print styling for Assurance Report */
 @media print {
   body {
     background-color: white !important;
@@ -76,11 +42,5 @@ body {
   }
   .print-only {
     display: block !important;
-  }
-  .glow-card {
-    border: 1px solid #ccc !important;
-    background: white !important;
-    color: black !important;
-    box-shadow: none !important;
   }
 }

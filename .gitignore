@@ -1,4 +1,4 @@
-﻿# Logs
+# Logs
 logs
 *.log
 npm-debug.log*
@@ -30,3 +30,24 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/venv/
+backend/env/
+venv/
+env/
+ENV/
+*.db
+*.sqlite3
+backend/storage/*.db
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/storage/vault/*
+!backend/storage/vault/.gitkeep
+.pytest_cache/
+

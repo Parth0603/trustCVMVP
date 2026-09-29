@@ -1,309 +1,329 @@
-import React from 'react';
-import {
-  Database,
-  Search,
-  AlertTriangle,
-  Copy,
-  RefreshCw,
-  Users,
-  PieChart,
-  BarChart3,
-  ShieldAlert,
-  ShieldCheck,
-  Flame,
-  CheckCircle2,
-  Sparkles
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../state/AppContext';
-import { MetricCard } from '../components/common/MetricCard';
-import { StatusBadge } from '../components/common/StatusBadge';
-import { JudgeAnnotation } from '../components/common/JudgeAnnotation';
+import { dataApi } from '../services/dataApi';
+import { DataIntegrityResult } from '../services/types';
+import { AssessmentWizardModal } from '../components/common/AssessmentWizardModal';
 
 export const DataIntegrityPage: React.FC = () => {
-  const {
-    state,
-    scanDataset,
-    simulatePoisoning,
-    simulateDuplicateFlooding,
-    simulateOodInsertion,
-    resetDataset
-  } = useApp();
+  const { state, setActivePage } = useApp();
+  const [dataReport, setDataReport] = useState<DataIntegrityResult | null>(null);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [selectedFinding, setSelectedFinding] = useState<any | null>(null);
 
-  const { dataset } = state;
+  useEffect(() => {
+    dataApi.getDataIntegrityReport(state).then(setDataReport);
+  }, [state]);
+
+  // EMPTY STATE: No dataset uploaded / analyzed
+  if (!dataReport) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[65vh] max-w-xl mx-auto text-center px-4">
+        <div className="w-16 h-16 rounded-2xl bg-surface-container-high/60 border border-surface-container-high flex items-center justify-center mb-6 text-secondary">
+          <span className="material-symbols-outlined text-[36px]">database</span>
+        </div>
+        <h2 className="text-2xl font-semibold text-on-surface tracking-tight mb-2">
+          Data Integrity
+        </h2>
+        <p className="text-sm text-secondary mb-8 max-w-md">
+          Upload a dataset to begin an integrity assessment. TRUST-CV validates images, computes perceptual hashes, detects duplicates, and inspects label distributions.
+        </p>
+        <button
+          onClick={() => setIsWizardOpen(true)}
+          className="px-6 py-2.5 rounded-lg bg-primary text-on-primary hover:bg-primary-container transition-all font-medium text-sm shadow-xs flex items-center gap-2"
+          type="button"
+        >
+          <span className="material-symbols-outlined text-[18px]">upload_file</span>
+          <span>UPLOAD DATASET</span>
+        </button>
+        <AssessmentWizardModal isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} />
+      </div>
+    );
+  }
+
+  const rawData = state.activeAssessmentData || {};
+  const duplicateClusters = rawData.duplicate_clusters || [];
+  const anomalyIndicators = rawData.anomaly_indicators || [];
+  const poisoningIndicators = rawData.poisoning_indicators || [];
 
   return (
-    <div className="space-y-6">
-      {/* Page Title & Subtitle */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="text-xs font-mono text-cyan-400 font-semibold uppercase tracking-wider flex items-center gap-1.5">
-            <Database className="w-3.5 h-3.5" />
-            ENGINE 1 — DATA INTEGRITY ENGINE
-          </div>
-          <h2 className="text-2xl font-black text-white tracking-tight uppercase telemetry-mono mt-0.5">
-            Multi-Contributor Training Data Integrity
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Detecting poisoned samples, duplicate flooding, out-of-distribution (OOD) contamination, and spectral anomalies across sovereign defense vendors.
-          </p>
-        </div>
-
-        {/* Action Buttons Toolbar */}
-        <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-space-lg w-full max-w-[1200px] mx-auto pb-space-xl">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-space-sm">
           <button
-            onClick={scanDataset}
-            disabled={dataset.isScanning}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold font-mono tracking-wide transition-all shadow-[0_0_12px_rgba(6,182,212,0.25)] ${
-              dataset.isScanning ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
+            onClick={() => setActivePage('overview')}
+            className="p-1.5 rounded-lg text-secondary hover:text-on-surface hover:bg-surface-container-low transition-colors"
+            title="Back to Overview"
           >
-            <Search className={`w-3.5 h-3.5 ${dataset.isScanning ? 'animate-spin' : ''}`} />
-            {dataset.isScanning ? 'SCANNING DATASET...' : 'SCAN DATASET'}
+            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
           </button>
-
-          <button
-            onClick={simulatePoisoning}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-950 hover:bg-rose-900 border border-rose-500/50 text-rose-300 text-xs font-semibold font-mono tracking-wide transition-all shadow-[0_0_10px_rgba(239,68,68,0.2)]"
-          >
-            <Flame className="w-3.5 h-3.5 text-rose-400" />
-            SIMULATE POISONING
-          </button>
-
-          <button
-            onClick={simulateDuplicateFlooding}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-950 hover:bg-amber-900 border border-amber-500/50 text-amber-300 text-xs font-semibold font-mono tracking-wide transition-all"
-          >
-            <Copy className="w-3.5 h-3.5 text-amber-400" />
-            SIMULATE DUPLICATE FLOODING
-          </button>
-
-          <button
-            onClick={simulateOodInsertion}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-950 hover:bg-indigo-900 border border-indigo-500/50 text-indigo-300 text-xs font-semibold font-mono tracking-wide transition-all"
-          >
-            <AlertTriangle className="w-3.5 h-3.5 text-indigo-400" />
-            SIMULATE OOD INSERTION
-          </button>
-
-          <button
-            onClick={resetDataset}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-semibold font-mono transition-all"
-          >
-            <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-            RESET DATASET
-          </button>
-        </div>
-      </div>
-
-      {/* Dataset Overview Summary Card */}
-      <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 backdrop-blur-md">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-base font-extrabold text-white telemetry-mono">
-                DATASET: {dataset.name}
-              </span>
-              <StatusBadge status={dataset.status} size="sm" />
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Format: <span className="font-mono text-cyan-300">{dataset.format}</span> • Ingestion Partition: <span className="text-slate-300">Defense Sovereign Corridor</span>
+            <h2 className="text-xl sm:text-2xl font-semibold text-on-surface">Data Integrity</h2>
+            <p className="text-xs sm:text-sm text-secondary">
+              Real file validation, perceptual hash deduplication, and label distribution analysis
             </p>
           </div>
-
-          <div className="flex items-center gap-4 text-xs font-mono">
-            <div className="text-right">
-              <span className="text-slate-500 block text-[10px]">INTEGRITY SCORE</span>
-              <span className={`text-xl font-bold ${dataset.integrityScore < 75 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                {dataset.integrityScore}%
-              </span>
-            </div>
-            <div className="text-right border-l border-slate-800 pl-4">
-              <span className="text-slate-500 block text-[10px]">CONTRIBUTOR RISK</span>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded border uppercase ${
-                dataset.contributorRisk === 'HIGH' ? 'text-rose-400 border-rose-500/40 bg-rose-950/40' : 'text-emerald-400 border-emerald-500/40 bg-emerald-950/40'
-              }`}>
-                {dataset.contributorRisk}
-              </span>
-            </div>
-          </div>
         </div>
+        <div className="flex items-center gap-2">
+          <span className="px-3 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed text-xs font-semibold border border-outline-variant/30">
+            Score {dataReport.score} / 100
+          </span>
+          <button
+            onClick={() => setIsWizardOpen(true)}
+            className="px-3 py-1 rounded-lg bg-primary text-on-primary hover:bg-primary-container text-xs font-medium transition-colors shadow-xs flex items-center gap-1"
+          >
+            <span className="material-symbols-outlined text-[15px]">upload_file</span>
+            <span>Upload New Dataset</span>
+          </button>
+        </div>
+      </div>
 
-        {/* Telemetry Metrics Row */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
-          <div className="p-3 rounded-lg bg-slate-950 border border-slate-800/80">
-            <span className="text-[10px] uppercase font-mono font-bold text-slate-500">Total Samples</span>
-            <div className="text-lg font-bold text-white telemetry-mono mt-0.5">
-              {dataset.totalSamples.toLocaleString()}
-            </div>
+      {/* Top 3 Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+        <div className="bg-surface-container-lowest rounded-xl p-space-md shadow-xs border border-surface-container-high">
+          <span className="text-xs text-secondary font-medium">Evaluated Dataset</span>
+          <div className="text-base font-semibold text-on-surface mt-1 truncate">{dataReport.benchmarkSet}</div>
+          <span className="text-xs text-secondary mt-1 block font-mono">
+            {dataReport.totalSamples.toLocaleString()} Uploaded Images
+          </span>
+        </div>
+        <div className="bg-surface-container-lowest rounded-xl p-space-md shadow-xs border border-surface-container-high">
+          <span className="text-xs text-secondary font-medium">Anomaly Ratio</span>
+          <div className="text-base font-semibold text-on-surface mt-1">
+            {dataReport.anomalyRatio}% <span className={`text-xs font-normal ${dataReport.anomalyRatio > 1.0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+              ({dataReport.anomalyRatio > 1.0 ? 'Exceeds 1.0% threshold' : 'Within safe bounds'})
+            </span>
           </div>
+          <span className="text-xs text-secondary mt-1 block">
+            {dataReport.anomalies.nearDuplicates + dataReport.anomalies.outOfDistribution + dataReport.anomalies.labelConflicts} detected issues
+          </span>
+        </div>
+        <div className="bg-surface-container-lowest rounded-xl p-space-md shadow-xs border border-surface-container-high">
+          <span className="text-xs text-secondary font-medium">Attestation Protocol</span>
+          <div className="text-base font-semibold text-on-surface mt-1">{dataReport.attestationProtocol}</div>
+          <span className="text-xs text-secondary mt-1 block font-mono">
+            SHA-256 Per-Image Hash Verified
+          </span>
+        </div>
+      </div>
 
-          <div className={`p-3 rounded-lg bg-slate-950 border ${dataset.poisonedSamples > 0 ? 'border-rose-500/50 bg-rose-950/20' : 'border-slate-800/80'}`}>
-            <span className="text-[10px] uppercase font-mono font-bold text-slate-500">Poisoned Samples</span>
-            <div className={`text-lg font-bold telemetry-mono mt-0.5 ${dataset.poisonedSamples > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-              {dataset.poisonedSamples}
+      {/* Class Balance & Distribution */}
+      <div className="bg-surface-container-lowest rounded-xl p-space-lg shadow-xs border border-surface-container-high flex flex-col gap-space-md">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-on-surface">Class Balance &amp; Distribution</span>
+          <span className="text-xs text-secondary font-mono">
+            {dataReport.classBalance.length} Classes Detected
+          </span>
+        </div>
+        <div className="w-full bg-surface-container-low h-4 rounded-full overflow-hidden flex">
+          {dataReport.classBalance.map((item, idx) => (
+            <div
+              key={idx}
+              className={`${item.colorClass} h-full transition-all`}
+              style={{ width: `${item.percentage}%` }}
+              title={`${item.name}: ${item.percentage}%`}
+            />
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-space-lg pt-space-xs text-xs">
+          {dataReport.classBalance.map((item, idx) => (
+            <div key={idx} className="flex items-center gap-1.5">
+              <span className={`h-2.5 w-2.5 rounded-full ${item.colorClass}`}></span>
+              <span>{item.name} ({item.percentage}%)</span>
             </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Anomaly Classification Matrix */}
+      <div className="bg-surface-container-lowest rounded-xl p-space-lg shadow-xs border border-surface-container-high">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-on-surface">Anomaly Classification Matrix</span>
+          <span className="text-[11px] text-secondary">
+            Derived directly from uploaded image bytes &amp; annotations
+          </span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-space-md mt-space-md text-center">
+          <div className="p-space-md bg-surface-container-low rounded-xl border border-surface-container-high/40">
+            <span className="text-xl font-semibold text-on-surface">
+              {dataReport.anomalies.normalFrames.toLocaleString()}
+            </span>
+            <span className="text-xs text-secondary block mt-1">Normal Frames</span>
           </div>
-
-          <div className={`p-3 rounded-lg bg-slate-950 border ${dataset.duplicateSamples > 100 ? 'border-amber-500/50 bg-amber-950/20' : 'border-slate-800/80'}`}>
-            <span className="text-[10px] uppercase font-mono font-bold text-slate-500">Duplicate Samples</span>
-            <div className={`text-lg font-bold telemetry-mono mt-0.5 ${dataset.duplicateSamples > 100 ? 'text-amber-400' : 'text-slate-200'}`}>
-              {dataset.duplicateSamples.toLocaleString()}
-            </div>
+          <div className="p-space-md bg-surface-container-low rounded-xl border border-surface-container-high/40">
+            <span className={`text-xl font-semibold ${dataReport.anomalies.nearDuplicates > 0 ? 'text-amber-600' : 'text-on-surface'}`}>
+              {dataReport.anomalies.nearDuplicates}
+            </span>
+            <span className="text-xs text-secondary block mt-1">Duplicate Images</span>
           </div>
-
-          <div className={`p-3 rounded-lg bg-slate-950 border ${dataset.oodSamples > 50 ? 'border-amber-500/50 bg-amber-950/20' : 'border-slate-800/80'}`}>
-            <span className="text-[10px] uppercase font-mono font-bold text-slate-500">OOD Samples</span>
-            <div className={`text-lg font-bold telemetry-mono mt-0.5 ${dataset.oodSamples > 50 ? 'text-amber-400' : 'text-slate-200'}`}>
-              {dataset.oodSamples}
-            </div>
+          <div className="p-space-md bg-surface-container-low rounded-xl border border-surface-container-high/40">
+            <span className={`text-xl font-semibold ${dataReport.anomalies.outOfDistribution > 0 ? 'text-amber-600' : 'text-on-surface'}`}>
+              {dataReport.anomalies.outOfDistribution}
+            </span>
+            <span className="text-xs text-secondary block mt-1">Out-of-Distribution</span>
           </div>
-
-          <div className={`p-3 rounded-lg bg-slate-950 border ${dataset.spectralAnomalies > 10 ? 'border-rose-500/50 bg-rose-950/20' : 'border-slate-800/80'}`}>
-            <span className="text-[10px] uppercase font-mono font-bold text-slate-500">Spectral Anomalies</span>
-            <div className={`text-lg font-bold telemetry-mono mt-0.5 ${dataset.spectralAnomalies > 10 ? 'text-rose-400' : 'text-slate-200'}`}>
-              {dataset.spectralAnomalies}
-            </div>
+          <div className="p-space-md bg-surface-container-low rounded-xl border border-surface-container-high/40">
+            <span className={`text-xl font-semibold ${dataReport.anomalies.labelConflicts > 0 ? 'text-primary' : 'text-on-surface'}`}>
+              {dataReport.anomalies.labelConflicts}
+            </span>
+            <span className="text-xs text-secondary block mt-1">Label Conflicts</span>
           </div>
         </div>
       </div>
 
-      {/* Visual Analytics Split */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Category Anomaly Distribution */}
-        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800">
-          <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-800">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-cyan-400" />
-              Category Breakdown & Spectral Anomalies
-            </h3>
-            <span className="text-[10px] font-mono text-slate-500">COCO DEFENSE LABELS</span>
+      {/* Traceable Findings & Evidence Details */}
+      <div className="bg-surface-container-lowest rounded-xl p-space-lg shadow-xs border border-surface-container-high">
+        <div className="flex items-center justify-between pb-2">
+          <div>
+            <span className="text-sm font-semibold text-on-surface">Traceable Findings &amp; Evidence Log</span>
+            <p className="text-xs text-secondary mt-0.5">
+              Click any finding to inspect affected files, hashes, and evidence
+            </p>
           </div>
-
-          <div className="space-y-3">
-            {dataset.categories.map((cat, idx) => {
-              const anomalyRate = ((cat.anomalies / cat.count) * 100).toFixed(1);
-              const isFlagged = cat.anomalies > 0;
-
-              return (
-                <div key={idx} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs font-mono">
-                    <span className="text-slate-300 font-medium truncate">{cat.name}</span>
-                    <span className="text-slate-400">
-                      {cat.count} samples {isFlagged && <span className="text-rose-400 font-bold ml-1">({cat.anomalies} flagged)</span>}
-                    </span>
-                  </div>
-
-                  <div className="w-full h-2 rounded-full bg-slate-950 overflow-hidden flex">
-                    <div
-                      className="bg-cyan-600 h-full rounded-l"
-                      style={{ width: `${Math.max(10, ((cat.count - cat.anomalies) / 4000) * 100)}%` }}
-                    />
-                    {isFlagged && (
-                      <div
-                        className="bg-rose-500 h-full animate-pulse"
-                        style={{ width: `${Math.max(8, (cat.anomalies / 150) * 100)}%` }}
-                      />
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <span className="text-xs font-mono text-secondary">
+            {duplicateClusters.length + anomalyIndicators.length + poisoningIndicators.length} Findings
+          </span>
         </div>
 
-        {/* Contributor Distribution & Anomaly Cluster */}
-        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800">
-          <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-800">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-              <Users className="w-4 h-4 text-cyan-400" />
-              Multi-Vendor Contribution Partitioning
-            </h3>
-            <span className="text-[10px] font-mono text-slate-500">6 PARTICIPATING VENDORS</span>
+        {duplicateClusters.length === 0 && anomalyIndicators.length === 0 && poisoningIndicators.length === 0 ? (
+          <div className="py-8 text-center text-xs text-secondary">
+            No exact duplicates or anomalies detected in the uploaded dataset. All samples conform to safety bounds.
           </div>
-
-          <div className="space-y-3">
-            {dataset.contributors.map(c => {
-              const percentage = ((c.samplesContributed / dataset.totalSamples) * 100).toFixed(1);
-              const isVendorHighRisk = c.riskLevel === 'HIGH';
-
-              return (
-                <div
-                  key={c.id}
-                  className={`p-2.5 rounded-lg border text-xs font-mono transition-all ${
-                    isVendorHighRisk
-                      ? 'border-rose-500/50 bg-rose-950/20 text-rose-200'
-                      : 'border-slate-800/80 bg-slate-950/50 text-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-semibold text-white">{c.name}</span>
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                      isVendorHighRisk ? 'bg-rose-950 text-rose-400 border border-rose-500/40' : 'bg-slate-800 text-slate-400'
-                    }`}>
-                      {c.riskLevel} RISK
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[11px] text-slate-400">
-                    <span>{c.samplesContributed.toLocaleString()} samples ({percentage}%)</span>
-                    <span>Provenance: {c.provenanceCompleteness}%</span>
+        ) : (
+          <div className="mt-4 flex flex-col gap-2">
+            {/* Duplicates */}
+            {duplicateClusters.map((cluster: any, idx: number) => (
+              <div
+                key={`dup-${idx}`}
+                onClick={() => setSelectedFinding({
+                  type: 'Duplicate Cluster',
+                  id: cluster.cluster_id || `DUP-${idx + 1}`,
+                  affectedFiles: cluster.images || [],
+                  details: `Hamming distance cutoff <= 3 bits. Perceptual dHash collision detected between ${cluster.images?.length || 0} images.`,
+                  reason: 'Redundant samples can skew training gradients or lead to memorization vulnerability.'
+                })}
+                className="p-3 rounded-lg bg-surface-container-low hover:bg-surface-container cursor-pointer border border-surface-container-high transition-colors flex items-center justify-between text-xs"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[18px] text-amber-600">content_copy</span>
+                  <div>
+                    <span className="font-semibold text-on-surface">{cluster.cluster_id || `Cluster #${idx + 1}`}: </span>
+                    <span className="text-secondary">{cluster.images?.length || 0} duplicate images detected</span>
                   </div>
                 </div>
-              );
-            })}
+                <span className="text-primary font-medium flex items-center gap-1">
+                  Inspect Evidence <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                </span>
+              </div>
+            ))}
+
+            {/* OOD indicators */}
+            {anomalyIndicators.map((ano: any, idx: number) => (
+              <div
+                key={`ano-${idx}`}
+                onClick={() => setSelectedFinding({
+                  type: 'Statistical Anomaly',
+                  id: `ANO-${idx + 1}`,
+                  affectedFiles: [ano.image_path || ano.file || 'Sample frame'],
+                  details: ano.description || 'Covariance or luminance distribution deviated from dataset centroid.',
+                  reason: 'Sample exhibits non-standard aspect ratio, spectrum, or metadata inconsistency.'
+                })}
+                className="p-3 rounded-lg bg-surface-container-low hover:bg-surface-container cursor-pointer border border-surface-container-high transition-colors flex items-center justify-between text-xs"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-[18px] text-amber-600">warning</span>
+                  <div>
+                    <span className="font-semibold text-on-surface">Statistical Outlier: </span>
+                    <span className="text-secondary">{ano.image_path || ano.description || `Anomaly #${idx + 1}`}</span>
+                  </div>
+                </div>
+                <span className="text-primary font-medium flex items-center gap-1">
+                  Inspect Evidence <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                </span>
+              </div>
+            ))}
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Contributor Auditing Table */}
-      <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-            Multi-Contributor Inspection & Anomaly Ledger
-          </h3>
-          <span className="text-[11px] font-mono text-slate-500">SIMULATED BENCHMARK TELEMETRY</span>
+      {/* Traceable Finding Modal / Inspector */}
+      {selectedFinding && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-surface-container-lowest rounded-xl max-w-lg w-full p-6 border border-surface-container-high shadow-lg">
+            <div className="flex items-center justify-between pb-3 border-b border-surface-container-high">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px] text-primary">analytics</span>
+                <h3 className="text-sm font-semibold text-on-surface">Finding Evidence: {selectedFinding.id}</h3>
+              </div>
+              <button
+                onClick={() => setSelectedFinding(null)}
+                className="p-1 rounded text-secondary hover:text-on-surface"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+            <div className="mt-4 flex flex-col gap-3 text-xs">
+              <div>
+                <span className="text-secondary font-medium block">Category:</span>
+                <span className="text-on-surface font-semibold">{selectedFinding.type}</span>
+              </div>
+              <div>
+                <span className="text-secondary font-medium block">Details:</span>
+                <p className="text-on-surface mt-0.5">{selectedFinding.details}</p>
+              </div>
+              <div>
+                <span className="text-secondary font-medium block">Assurance Reason:</span>
+                <p className="text-on-surface mt-0.5">{selectedFinding.reason}</p>
+              </div>
+              <div>
+                <span className="text-secondary font-medium block">Affected Files:</span>
+                <div className="mt-1 bg-surface-container-low p-2 rounded border border-surface-container-high font-mono text-[11px] max-h-32 overflow-y-auto">
+                  {selectedFinding.affectedFiles.map((f: string, i: number) => (
+                    <div key={i} className="py-0.5 text-on-surface truncate">{f}</div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setSelectedFinding(null)}
+                className="px-4 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-medium"
+              >
+                Done
+              </button>
+            </div>
+          </div>
         </div>
+      )}
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs font-mono">
+      {/* Annotator & Provenance Ingest Stream */}
+      <div className="bg-surface-container-lowest rounded-xl p-space-lg shadow-xs border border-surface-container-high">
+        <div className="flex items-center justify-between pb-2">
+          <span className="text-sm font-semibold text-on-surface">Annotator &amp; Provenance Ingest Log</span>
+          <span className="text-xs text-secondary font-mono">Real Ingest Batch</span>
+        </div>
+        <div className="mt-space-md overflow-x-auto">
+          <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
-                <th className="pb-2">Contributor</th>
-                <th className="pb-2">Role</th>
-                <th className="pb-2">Samples</th>
-                <th className="pb-2">Integrity Events</th>
-                <th className="pb-2">Provenance</th>
-                <th className="pb-2">Risk</th>
-                <th className="pb-2">Status</th>
+              <tr className="text-secondary font-medium border-b border-surface-container-high/60">
+                <th className="pb-2.5">BATCH ID</th>
+                <th className="pb-2.5">SOURCE</th>
+                <th className="pb-2.5">SAMPLES</th>
+                <th className="pb-2.5">CONSENSUS SCORE</th>
+                <th className="pb-2.5">STATUS</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {dataset.contributors.map(c => (
-                <tr key={c.id} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="py-2.5 font-semibold text-white">{c.name}</td>
-                  <td className="py-2.5 text-slate-400">{c.role}</td>
-                  <td className="py-2.5 text-slate-300">{c.samplesContributed.toLocaleString()}</td>
+            <tbody className="divide-y divide-surface-container-high/40">
+              {dataReport.annotatorBatches.map((b, idx) => (
+                <tr key={idx} className="hover:bg-surface-container-low/40 transition-colors">
+                  <td className="py-2.5 font-mono text-secondary">{b.batchId}</td>
+                  <td className="py-2.5 font-medium text-on-surface">{b.source}</td>
+                  <td className="py-2.5 font-mono">{b.samples.toLocaleString()}</td>
+                  <td className="py-2.5 font-mono">{b.consensusScore}</td>
                   <td className="py-2.5">
-                    <span className={c.integrityEvents > 0 ? 'text-rose-400 font-bold' : 'text-slate-400'}>
-                      {c.integrityEvents}
+                    <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-medium">
+                      {b.status}
                     </span>
-                  </td>
-                  <td className="py-2.5 text-cyan-400">{c.provenanceCompleteness}%</td>
-                  <td className="py-2.5">
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        c.riskLevel === 'HIGH'
-                          ? 'bg-rose-950 text-rose-400 border border-rose-500/40'
-                          : c.riskLevel === 'MEDIUM'
-                          ? 'bg-amber-950 text-amber-400 border border-amber-500/40'
-                          : 'bg-emerald-950 text-emerald-400 border border-emerald-500/40'
-                      }`}
-                    >
-                      {c.riskLevel}
-                    </span>
-                  </td>
-                  <td className="py-2.5">
-                    <StatusBadge status={c.status} size="sm" />
                   </td>
                 </tr>
               ))}
@@ -312,11 +332,7 @@ export const DataIntegrityPage: React.FC = () => {
         </div>
       </div>
 
-      <JudgeAnnotation
-        title="WHY DATA INTEGRITY DEFENSE MATTERS FOR MoD / DGIS"
-        whyItMatters="In multi-vendor defense AI projects, training sets are aggregated from private defense contractors, academic partners, and external sensing units. An adversary can execute 'Clean-Label Poisoning' (embedding invisible trigger patterns without altering the ground truth label). When tested normally, the model appears accurate, but a specific physical decoy triggers a target miss."
-        defenseContext="Spectral anomaly detection isolates poisoned partitions before model fine-tuning begins."
-      />
+      <AssessmentWizardModal isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} />
     </div>
   );
 };

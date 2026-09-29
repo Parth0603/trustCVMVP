@@ -9,6 +9,14 @@ export const PixelSealViewer: React.FC = () => {
   const { state, simulateTampering, restoreInference } = useApp();
   const { inference } = state;
 
+  if (!inference) {
+    return (
+      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-8 text-center text-slate-400 text-xs">
+        No inference record available. Run an inference assessment to generate pixel seal verification.
+      </div>
+    );
+  }
+
   return (
     <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 backdrop-blur-md">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3.5 min-w-0">

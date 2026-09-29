@@ -1,9 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from './state/AppContext';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { FooterDisclaimer } from './components/layout/FooterDisclaimer';
-import { LandingPage } from './pages/LandingPage';
 import { OverviewDashboard } from './pages/OverviewDashboard';
 import { DataIntegrityPage } from './pages/DataIntegrityPage';
 import { ModelIntegrityPage } from './pages/ModelIntegrityPage';
@@ -13,14 +12,11 @@ import { ContributorTrustPage } from './pages/ContributorTrustPage';
 import { AttackSimulationLab } from './pages/AttackSimulationLab';
 import { AuditVaultPage } from './pages/AuditVaultPage';
 import { AssuranceReportPage } from './pages/AssuranceReportPage';
+import { AssessmentWizardModal } from './components/common/AssessmentWizardModal';
 
 export const AppContent: React.FC = () => {
   const { activePage } = useApp();
-
-  // If on landing page, display the dedicated full-width introduction experience
-  if (activePage === 'landing') {
-    return <LandingPage />;
-  }
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
 
   const renderActivePage = () => {
     switch (activePage) {
@@ -48,25 +44,26 @@ export const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-[#070A10] text-slate-100 overflow-hidden font-sans select-none">
+    <div className="min-h-screen bg-surface font-sans text-on-surface antialiased">
       {/* Persistent Left Sidebar */}
       <Sidebar />
 
-      {/* Main Application Area */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+      {/* Main Content Viewport offset by 64 (16rem / 256px) for fixed sidebar */}
+      <div className="pl-64 flex flex-col min-h-screen">
         {/* Top Header */}
-        <Header />
+        <Header onOpenWizard={() => setIsWizardOpen(true)} />
 
-        {/* Dynamic Page Workspace with Military Grid Backdrop */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 military-grid relative min-w-0">
-          <div className="max-w-7xl mx-auto pb-8">
-            {renderActivePage()}
-          </div>
+        {/* Dynamic Page Workspace */}
+        <main className="w-full pt-16 px-space-lg py-space-lg bg-surface flex-1 min-h-[calc(100vh-3.5rem)]">
+          {renderActivePage()}
         </main>
 
         {/* Mandatory Footer Disclaimer */}
         <FooterDisclaimer />
       </div>
+
+      {/* Global Assessment Wizard Modal */}
+      <AssessmentWizardModal isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} />
     </div>
   );
 };

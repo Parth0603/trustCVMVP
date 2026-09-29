@@ -1,166 +1,133 @@
-import React from 'react';
-import {
-  Fingerprint,
-  CheckCircle2,
-  AlertTriangle,
-  GitCommit,
-  ShieldCheck,
-  Clock,
-  Layers,
-  Key,
-  ShieldAlert,
-  ArrowDown
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../state/AppContext';
-import { PixelSealViewer } from '../components/steganography/PixelSealViewer';
-import { TemporalMerkleViewer } from '../components/merkle/TemporalMerkleViewer';
-import { HashDisplay } from '../components/common/HashDisplay';
-import { StatusBadge } from '../components/common/StatusBadge';
-import { JudgeAnnotation } from '../components/common/JudgeAnnotation';
-import { formatHashShort } from '../utils/crypto';
+import { provenanceApi } from '../services/provenanceApi';
+import { ProvenanceResult } from '../services/types';
+import { AssessmentWizardModal } from '../components/common/AssessmentWizardModal';
 
 export const InferenceProvenancePage: React.FC = () => {
-  const { state } = useApp();
-  const { inference } = state;
+  const { state, setActivePage } = useApp();
+  const [provenanceReport, setProvenanceReport] = useState<ProvenanceResult | null>(null);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
 
-  return (
-    <div className="space-y-6">
-      {/* Title */}
-      <div>
-        <div className="text-xs font-mono text-cyan-400 font-semibold uppercase tracking-wider flex items-center gap-1.5">
-          <Fingerprint className="w-3.5 h-3.5" />
-          ENGINE 3 — CRYPTOGRAPHIC PROVENANCE & OUTPUT INTEGRITY
+  useEffect(() => {
+    provenanceApi.getProvenanceReport(state).then(setProvenanceReport);
+  }, [state]);
+
+  // EMPTY STATE: No inference record available
+  if (!provenanceReport) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[65vh] max-w-xl mx-auto text-center px-4">
+        <div className="w-16 h-16 rounded-2xl bg-surface-container-high/60 border border-surface-container-high flex items-center justify-center mb-6 text-secondary">
+          <span className="material-symbols-outlined text-[36px]">verified</span>
         </div>
-        <h2 className="text-2xl font-black text-white tracking-tight uppercase telemetry-mono mt-0.5">
-          Inference Provenance & Steganographic Seal
+        <div className="text-xs uppercase tracking-wider text-secondary font-semibold mb-1">
+          PROVENANCE
+        </div>
+        <h2 className="text-2xl font-semibold text-on-surface tracking-tight mb-2">
+          Not available
         </h2>
-        <p className="text-xs text-slate-400 mt-1">
-          Cryptographically binding INPUT + MODEL + CONFIG + OUTPUT into a tamper-evident, non-repudiation provenance chain.
+        <p className="text-sm text-secondary mb-8 max-w-md">
+          Run an inference assessment to generate provenance evidence. TRUST-CV produces tamper-evident cryptographic custody chains and digital signatures.
         </p>
+        <button
+          onClick={() => setIsWizardOpen(true)}
+          className="px-6 py-2.5 rounded-lg bg-primary text-on-primary hover:bg-primary-container transition-all font-medium text-sm shadow-xs flex items-center gap-2"
+          type="button"
+        >
+          <span className="material-symbols-outlined text-[18px]">add_circle</span>
+          <span>Run Assessment</span>
+        </button>
+        <AssessmentWizardModal isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} />
       </div>
+    );
+  }
 
-      {/* Steganographic Pixel Seal Interactive Demo */}
-      <PixelSealViewer />
-
-      {/* Provenance Manifest & Cryptographic Hashes */}
-      <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 backdrop-blur-md">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+  // REAL PROVENANCE VIEW
+  return (
+    <div className="flex flex-col gap-space-lg w-full max-w-[1200px] mx-auto pb-space-xl">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-space-sm">
+          <button
+            onClick={() => setActivePage('overview')}
+            className="p-1.5 rounded-lg text-secondary hover:text-on-surface hover:bg-surface-container-low transition-colors"
+            title="Back to Overview"
+          >
+            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+          </button>
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-cyan-400" />
-              Cryptographic Binding Manifest: {inference.inferenceId}
-            </h3>
-            <span className="text-[11px] font-mono text-slate-500">
-              Deterministic Ed25519 (FIPS 186-5) & SHA-256 (FIPS 180-4)
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3 font-mono text-xs">
-            <span className="text-slate-400">NONCE: <strong className="text-white">{inference.nonce}</strong></span>
-            <span className="text-slate-400">SEQ: <strong className="text-cyan-400">#{inference.sequenceNumber}</strong></span>
-            <StatusBadge
-              status={inference.sealStatus === 'VERIFIED' ? 'CHAIN VERIFIED' : 'CHAIN SEVERED'}
-              type="verification"
-              size="sm"
-            />
+            <h2 className="text-xl sm:text-2xl font-semibold text-on-surface">Inference Provenance</h2>
+            <p className="text-xs sm:text-sm text-secondary">
+              End-to-end cryptographic custody chain for {provenanceReport.frameId}
+            </p>
           </div>
         </div>
-
-        {/* 4 Hash Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
-          <HashDisplay
-            label="1. Raw Input Hash"
-            hash={inference.inputHash}
-            status="match"
-            tag="SENSOR INPUT"
-          />
-
-          <HashDisplay
-            label="2. Model Fingerprint"
-            hash={inference.modelHash}
-            status={state.model.fingerprintStatus === 'MATCH' ? 'match' : 'mismatch'}
-            tag="CSPDarknet53"
-          />
-
-          <HashDisplay
-            label="3. Runtime Config Hash"
-            hash={inference.configHash}
-            status="match"
-            tag="DGIS-PARAMS"
-          />
-
-          <HashDisplay
-            label="4. Sealed Output Hash"
-            hash={inference.outputHash}
-            status={inference.sealStatus === 'VERIFIED' ? 'match' : 'mismatch'}
-            tag={inference.sealStatus === 'VERIFIED' ? 'AUTHENTIC' : 'TAMPERED'}
-          />
+        <div className="flex items-center gap-2">
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
+            provenanceReport.status === 'VERIFIED'
+              ? 'bg-secondary-fixed text-on-secondary-fixed border-outline-variant/30'
+              : 'bg-rose-100 text-rose-800 border-rose-200'
+          }`}>
+            Score {provenanceReport.score} / 100
+          </span>
+          <span className="px-2.5 py-1 rounded bg-surface-container-low text-secondary text-xs font-mono border border-surface-container-high">
+            {provenanceReport.latencyMs}ms Latency
+          </span>
         </div>
       </div>
 
-      {/* Provenance Step Timeline */}
-      <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 backdrop-blur-md">
-        <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-800">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-            <GitCommit className="w-4 h-4 text-cyan-400" />
-            End-to-End Cryptographic Provenance Ledger
-          </h3>
-          <span className="text-[10px] font-mono text-slate-500">AIR-GAPPED SOVEREIGN AUDIT</span>
+      {/* Attested Execution Pipeline Stepper */}
+      <div className="bg-surface-container-lowest rounded-xl p-space-lg shadow-xs border border-surface-container-high">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-on-surface">Attested Execution Pipeline</span>
+          <span className="text-xs text-secondary font-mono">FIPS 186-5 Ed25519 &bull; SHA-256</span>
         </div>
-
-        <div className="space-y-3">
-          {inference.provenanceEvents.map((evt, idx) => (
-            <div
-              key={evt.step}
-              className={`p-3 rounded-lg border font-mono text-xs flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all ${
-                evt.verified
-                  ? 'border-slate-800 bg-slate-950/60 text-slate-300'
-                  : 'border-rose-500/60 bg-rose-950/30 text-rose-300 shadow-[0_0_12px_rgba(239,68,68,0.2)]'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center font-bold text-white text-[10px]">
-                  {idx + 1}
+        <div className="flex flex-wrap items-center justify-between gap-space-sm mt-space-md pt-space-xs">
+          {provenanceReport.pipelineSteps.map((step, idx) => (
+            <React.Fragment key={step.step}>
+              <div className="flex items-center gap-2">
+                <span className={`w-6 h-6 rounded-full text-xs flex items-center justify-center font-bold ${
+                  step.verified ? 'bg-primary text-on-primary' : 'bg-rose-500 text-white'
+                }`}>
+                  {step.step}
                 </span>
-                <div>
-                  <div className="font-bold text-white uppercase flex items-center gap-2">
-                    {evt.stageName}
-                    <span className="text-[10px] font-normal text-slate-500">({evt.step})</span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">{evt.description}</div>
-                </div>
+                <span className="text-xs font-medium text-on-surface">{step.name}</span>
               </div>
-
-              <div className="flex items-center gap-4 text-[11px] flex-shrink-0">
-                <div className="text-right">
-                  <div className="text-slate-400">Digest: {formatHashShort(evt.hash, 6, 4)}</div>
-                  <div className="text-slate-500 text-[10px]">{evt.timestamp}</div>
-                </div>
-                <div className="flex items-center gap-1.5 font-bold">
-                  {evt.verified ? (
-                    <span className="text-emerald-400 flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4" /> VERIFIED
-                    </span>
-                  ) : (
-                    <span className="text-rose-400 flex items-center gap-1">
-                      <AlertTriangle className="w-4 h-4" /> BROKEN
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
+              {idx < provenanceReport.pipelineSteps.length - 1 && (
+                <span className="material-symbols-outlined text-secondary text-[16px] hidden sm:inline">
+                  trending_flat
+                </span>
+              )}
+            </React.Fragment>
           ))}
         </div>
       </div>
 
-      {/* Temporal Merkle Tree Visualizer */}
-      <TemporalMerkleViewer />
+      {/* Cryptographic Proof Details */}
+      <div className="bg-surface-container-lowest rounded-xl p-space-lg shadow-xs border border-surface-container-high flex flex-col gap-space-md">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold text-on-surface">Cryptographic Proof Manifest</span>
+          <span className="text-xs text-primary font-mono flex items-center gap-1">
+            <span className="material-symbols-outlined text-[15px]">verified</span> Digital Seal Verified
+          </span>
+        </div>
+        <div className="bg-surface-container-low p-space-md rounded-xl font-mono text-xs flex flex-col gap-3 border border-surface-container-high/60">
+          <div>
+            <span className="text-secondary block font-sans font-medium">Input Payload Hash (SHA-256):</span>
+            <span className="text-on-surface select-all break-all">{provenanceReport.inputFrameHash}</span>
+          </div>
+          <div>
+            <span className="text-secondary block font-sans font-medium">Enclave Signature (Ed25519):</span>
+            <span className="text-primary select-all break-all">{provenanceReport.ecdsaAttestation}</span>
+          </div>
+          <div>
+            <span className="text-secondary block font-sans font-medium">Execution Enclave:</span>
+            <span className="text-on-surface">{provenanceReport.executionHardware}</span>
+          </div>
+        </div>
+      </div>
 
-      <JudgeAnnotation
-        title="WHY PROVENANCE & NON-REPUDIATION ARE CRUCIAL"
-        whyItMatters="If an autonomous drone reconnaissance pipeline misclassifies a civilian convoy as a hostile target, who was at fault? Did the camera sensor produce corrupted data? Did the third-party model mispredict? Did an operator tamper with the coordinates? Cryptographic provenance creates an unforgeable evidentiary chain answering exactly what occurred."
-        defenseContext="Supports Indian Army legal compliance and after-action sovereign review."
-      />
+      <AssessmentWizardModal isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} />
     </div>
   );
 };

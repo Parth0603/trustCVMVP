@@ -1,0 +1,6 @@
+names:
+  0: vehicle
+  1: pedestrian
+nc: 2
+train: images/train
+val: images/train

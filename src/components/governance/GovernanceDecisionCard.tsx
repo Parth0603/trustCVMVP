@@ -13,6 +13,14 @@ export const GovernanceDecisionCard: React.FC<GovernanceDecisionCardProps> = ({
   const { state } = useApp();
   const { governance } = state;
 
+  if (!governance) {
+    return (
+      <div className={`rounded-xl border border-slate-800 bg-slate-900/60 p-5 text-center text-xs text-slate-400 ${className}`}>
+        No assessment available. Upload a dataset to begin.
+      </div>
+    );
+  }
+
   const decisionConfig = {
     ACCEPT: {
       title: 'GOVERNANCE: ACCEPT',

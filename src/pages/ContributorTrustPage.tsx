@@ -1,209 +1,107 @@
-import React from 'react';
-import {
-  Users,
-  ShieldCheck,
-  ShieldAlert,
-  Clock,
-  Key,
-  Database,
-  Cpu,
-  FileCheck2,
-  AlertTriangle,
-  History
-} from 'lucide-react';
+import React, { useState } from 'react';
 import { useApp } from '../state/AppContext';
-import { StatusBadge } from '../components/common/StatusBadge';
-import { JudgeAnnotation } from '../components/common/JudgeAnnotation';
-import { formatHashShort } from '../utils/crypto';
+import { AssessmentWizardModal } from '../components/common/AssessmentWizardModal';
 
 export const ContributorTrustPage: React.FC = () => {
-  const { state } = useApp();
-  const { contributors } = state.dataset;
+  const { state, setActivePage } = useApp();
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const contributors = state.dataset?.contributors || [];
 
-  const timelineEvents = [
-    {
-      time: '12m ago',
-      contributor: 'Vendor-A (Electro-Optics Corp)',
-      action: 'Submitted batch #842 (320 samples) with valid Ed25519 sensor signatures.',
-      status: 'VERIFIED',
-      type: 'INFO'
-    },
-    {
-      time: '44m ago',
-      contributor: 'Vendor-B (Apex Vision Labs)',
-      action: state.dataset.poisonedSamples > 0
-        ? 'ALERT: Spectral anomaly detected in thermal augmentation partition. 147 samples flagged.'
-        : 'Submitted thermal IR augmentation partition (500 samples). Spectral checks passed.',
-      status: state.dataset.poisonedSamples > 0 ? 'FLAGGED' : 'VERIFIED',
-      type: state.dataset.poisonedSamples > 0 ? 'WARNING' : 'INFO'
-    },
-    {
-      time: '2h ago',
-      contributor: 'Vendor-C (Kavach Autonomous)',
-      action: 'Completed quantized edge weight validation for YOLOv8 backbone.',
-      status: 'VERIFIED',
-      type: 'INFO'
-    },
-    {
-      time: '5h ago',
-      contributor: 'Vendor-D (GeoAI Defense Sys)',
-      action: state.dataset.duplicateSamples > 100
-        ? 'Duplicate perceptual hash flooding detected (1,840 redundant frames).'
-        : 'Uploaded aerial synthetic terrain patches.',
-      status: state.dataset.duplicateSamples > 100 ? 'FLAGGED' : 'VERIFIED',
-      type: state.dataset.duplicateSamples > 100 ? 'WARNING' : 'INFO'
-    },
-    {
-      time: '1d ago',
-      contributor: 'Research Partner (IIT Consortium)',
-      action: 'Published adversarial robustness benchmark report against clean-label evasion.',
-      status: 'VERIFIED',
-      type: 'INFO'
-    }
-  ];
-
-  return (
-    <div className="space-y-6">
-      {/* Title */}
-      <div>
-        <div className="text-xs font-mono text-cyan-400 font-semibold uppercase tracking-wider flex items-center gap-1.5">
-          <Users className="w-3.5 h-3.5" />
-          MULTI-VENDOR ECOSYSTEM GOVERNANCE
+  // EMPTY STATE: No contributor metadata exists in uploaded dataset
+  if (contributors.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[65vh] max-w-xl mx-auto text-center px-4">
+        <div className="w-16 h-16 rounded-2xl bg-surface-container-high/60 border border-surface-container-high flex items-center justify-center mb-6 text-secondary">
+          <span className="material-symbols-outlined text-[36px]">badge</span>
         </div>
-        <h2 className="text-2xl font-black text-white tracking-tight uppercase telemetry-mono mt-0.5">
-          Contributor Trust & Supply Chain Telemetry
+        <div className="text-xs uppercase tracking-wider text-secondary font-semibold mb-1">
+          CONTRIBUTOR CONTEXT
+        </div>
+        <h2 className="text-2xl font-semibold text-on-surface tracking-tight mb-2">
+          No contributor metadata available
         </h2>
-        <p className="text-xs text-slate-400 mt-1">
-          Evaluating defense vendor reputation, cryptographic non-repudiation keys, and historical integrity events without hardcoded vendor prejudice.
+        <p className="text-sm text-secondary mb-8 max-w-md">
+          Contributor information unavailable. TRUST-CV does not fabricate vendor identities or reputation metrics when contributor provenance is absent from the dataset.
         </p>
+        <button
+          onClick={() => setIsWizardOpen(true)}
+          className="px-6 py-2.5 rounded-lg bg-primary text-on-primary hover:bg-primary-container transition-all font-medium text-sm shadow-xs flex items-center gap-2"
+          type="button"
+        >
+          <span className="material-symbols-outlined text-[18px]">upload_file</span>
+          <span>Upload Dataset With Metadata</span>
+        </button>
+        <AssessmentWizardModal isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} />
+      </div>
+    );
+  }
+
+  // REAL CONTRIBUTOR VIEW (when metadata actually exists in dataset payload)
+  return (
+    <div className="flex flex-col gap-space-lg w-full max-w-[1200px] mx-auto pb-space-xl">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-space-sm">
+          <button
+            onClick={() => setActivePage('data')}
+            className="p-1.5 rounded-lg text-secondary hover:text-on-surface hover:bg-surface-container-low transition-colors"
+            title="Back to Data Integrity"
+          >
+            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+          </button>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-semibold text-on-surface">Contributor Trust Registry</h2>
+            <p className="text-xs sm:text-sm text-secondary">
+              Provenance tracking extracted from verified dataset manifest
+            </p>
+          </div>
+        </div>
+        <span className="px-3 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed text-xs font-semibold border border-outline-variant/30">
+          {contributors.length} Registered Contributors
+        </span>
       </div>
 
-      {/* Contributor Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {contributors.map(c => {
-          const isHighRisk = c.riskLevel === 'HIGH';
-          const isMedRisk = c.riskLevel === 'MEDIUM';
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+        {contributors.map((c) => (
+          <div
+            key={c.id}
+            className="bg-surface-container-lowest rounded-xl p-space-lg shadow-xs border border-surface-container-high flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-on-surface">{c.name}</h3>
+                  <span className="text-xs text-secondary font-mono block mt-0.5">{c.role}</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  c.status === 'VERIFIED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                }`}>
+                  {c.status}
+                </span>
+              </div>
 
-          return (
-            <div
-              key={c.id}
-              className={`p-5 rounded-xl border transition-all flex flex-col justify-between ${
-                isHighRisk
-                  ? 'bg-rose-950/20 border-rose-500/50 shadow-[0_0_15px_rgba(239,68,68,0.15)]'
-                  : isMedRisk
-                  ? 'bg-amber-950/20 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
-                  : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
-              }`}
-            >
-              <div>
-                <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-800">
-                  <div>
-                    <h3 className="text-sm font-bold text-white uppercase tracking-tight">
-                      {c.name}
-                    </h3>
-                    <div className="text-xs text-slate-400 mt-0.5 font-medium">{c.role}</div>
-                  </div>
-
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${
-                      isHighRisk
-                        ? 'bg-rose-950 text-rose-400 border-rose-500/50'
-                        : isMedRisk
-                        ? 'bg-amber-950 text-amber-400 border-amber-500/50'
-                        : 'bg-emerald-950 text-emerald-400 border-emerald-500/40'
-                    }`}
-                  >
-                    {c.riskLevel} RISK
+              <div className="grid grid-cols-3 gap-2 mt-4 text-center">
+                <div className="p-2 bg-surface-container-low rounded-lg">
+                  <span className="text-xs text-secondary block">Samples</span>
+                  <span className="text-sm font-semibold text-on-surface font-mono">
+                    {c.samplesContributed.toLocaleString()}
                   </span>
                 </div>
-
-                {/* Metrics */}
-                <div className="grid grid-cols-2 gap-3 mt-4 text-xs font-mono">
-                  <div className="p-2.5 rounded bg-slate-950/70 border border-slate-800">
-                    <span className="text-[10px] text-slate-500 block uppercase">Samples Ingested</span>
-                    <span className="text-white font-bold text-sm mt-0.5 block">
-                      {c.samplesContributed.toLocaleString()}
-                    </span>
-                  </div>
-
-                  <div className="p-2.5 rounded bg-slate-950/70 border border-slate-800">
-                    <span className="text-[10px] text-slate-500 block uppercase">Models Submitted</span>
-                    <span className="text-white font-bold text-sm mt-0.5 block">
-                      {c.modelsSubmitted}
-                    </span>
-                  </div>
-
-                  <div className="p-2.5 rounded bg-slate-950/70 border border-slate-800">
-                    <span className="text-[10px] text-slate-500 block uppercase">Integrity Events</span>
-                    <span className={`font-bold text-sm mt-0.5 block ${c.integrityEvents > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                      {c.integrityEvents}
-                    </span>
-                  </div>
-
-                  <div className="p-2.5 rounded bg-slate-950/70 border border-slate-800">
-                    <span className="text-[10px] text-slate-500 block uppercase">Provenance Rate</span>
-                    <span className="text-cyan-400 font-bold text-sm mt-0.5 block">
-                      {c.provenanceCompleteness}%
-                    </span>
-                  </div>
+                <div className="p-2 bg-surface-container-low rounded-lg">
+                  <span className="text-xs text-secondary block">Models</span>
+                  <span className="text-sm font-semibold text-on-surface font-mono">{c.modelsSubmitted}</span>
                 </div>
-
-                <div className="mt-3 p-2 rounded bg-slate-950/50 border border-slate-800/80 text-[10px] font-mono text-slate-400 flex items-center justify-between">
-                  <span>KEY: {c.publicFingerprint}</span>
-                  <span className="text-slate-500">{c.lastActivity}</span>
+                <div className="p-2 bg-surface-container-low rounded-lg">
+                  <span className="text-xs text-secondary block">Provenance</span>
+                  <span className="text-sm font-semibold text-primary font-mono">{c.provenanceCompleteness}%</span>
                 </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
-                <span className="text-slate-500 font-mono text-[10px]">
-                  STATUS: <strong className="text-white">{c.status}</strong>
-                </span>
-                <StatusBadge status={c.status} size="sm" />
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
 
-      {/* Contributor Action Timeline */}
-      <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800">
-        <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-800">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-            <History className="w-4 h-4 text-cyan-400" />
-            Ecosystem Contribution Timeline & Event Stream
-          </h3>
-          <span className="text-[10px] font-mono text-slate-500">LIVE AIR-GAPPED BUS</span>
-        </div>
-
-        <div className="space-y-2.5">
-          {timelineEvents.map((evt, idx) => (
-            <div
-              key={idx}
-              className={`p-3 rounded-lg border font-mono text-xs flex flex-col md:flex-row md:items-center justify-between gap-2 ${
-                evt.type === 'WARNING'
-                  ? 'bg-amber-950/20 border-amber-500/40 text-amber-200'
-                  : 'bg-slate-950/60 border-slate-800 text-slate-300'
-              }`}
-            >
-              <div className="flex items-start md:items-center gap-2.5">
-                <span className="text-[10px] text-slate-500 flex-shrink-0">{evt.time}</span>
-                <div>
-                  <span className="font-bold text-white mr-2">{evt.contributor}:</span>
-                  <span className="text-slate-300 text-[11px]">{evt.action}</span>
-                </div>
-              </div>
-
-              <StatusBadge status={evt.status} size="sm" className="self-start md:self-auto" />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <JudgeAnnotation
-        title="WHY CONTRIBUTOR TRUST SCORING IS DEFENSIVE, NOT PUNITIVE"
-        whyItMatters="In sovereign military supply chains, vendors frequently subcontract data gathering. TRUST-CV continuously tracks provenance completeness and anomaly frequency. If a vendor partition contains poisoned samples, the system isolates only that vendor's contribution rather than throwing away the entire project."
-        defenseContext="Protects DGIS pipelines from compromised third-party sensor vendors without terminating contract operations."
-      />
+      <AssessmentWizardModal isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} />
     </div>
   );
 };

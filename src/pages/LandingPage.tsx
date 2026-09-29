@@ -203,11 +203,11 @@ export const LandingPage: React.FC = () => {
               {/* Vertical Pipeline Flow */}
               <div className="space-y-2.5 mt-3.5 font-mono text-xs">
                 {[
-                  { name: 'DATA BOUNDARY', status: state.dataset.status, color: state.dataset.status === 'VERIFIED' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/50' : 'text-amber-400 border-amber-500/30 bg-amber-950/50', metric: `${state.dataset.integrityScore}% Score` },
-                  { name: 'MODEL BOUNDARY', status: state.model.fingerprintStatus === 'MATCH' && state.model.triggerRisk === 'LOW' ? 'VERIFIED' : 'ANOMALY', color: state.model.fingerprintStatus === 'MATCH' && state.model.triggerRisk === 'LOW' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/50' : 'text-rose-400 border-rose-500/30 bg-rose-950/50', metric: state.model.fingerprintStatus },
-                  { name: 'INFERENCE BITSTREAM', status: state.inference.sealStatus === 'VERIFIED' ? 'SIGNED' : 'TAMPERED', color: state.inference.sealStatus === 'VERIFIED' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/50' : 'text-rose-400 border-rose-500/30 bg-rose-950/50', metric: state.inference.sealStatus === 'VERIFIED' ? 'Pixel Seal Valid' : 'Seal Compromised' },
-                  { name: 'PROVENANCE CHAIN', status: state.inference.sealStatus === 'VERIFIED' ? 'VERIFIED' : 'BROKEN', color: state.inference.sealStatus === 'VERIFIED' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/50' : 'text-rose-400 border-rose-500/30 bg-rose-950/50', metric: 'Ed25519 Bound' },
-                  { name: 'DISTRIBUTION SHIFT', status: state.distribution.currentScenario === 'NORMAL' ? 'NORMAL' : state.distribution.currentScenario === 'ADVERSARIAL_INPUT' ? 'MALICIOUS' : 'DRIFT', color: state.distribution.currentScenario === 'NORMAL' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/50' : state.distribution.currentScenario === 'ADVERSARIAL_INPUT' ? 'text-rose-400 border-rose-500/30 bg-rose-950/50' : 'text-amber-400 border-amber-500/30 bg-amber-950/50', metric: `MMD: ${state.distribution.scenarios[state.distribution.currentScenario].mmd}` },
+                  { name: 'DATA BOUNDARY', status: state.dataset?.status || 'NOT ANALYZED', color: state.dataset?.status === 'VERIFIED' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/50' : 'text-slate-400 border-slate-700/30 bg-slate-900/50', metric: state.dataset ? `${state.dataset.integrityScore}% Score` : 'No Data' },
+                  { name: 'MODEL BOUNDARY', status: state.model ? (state.model.fingerprintStatus === 'MATCH' && state.model.triggerRisk === 'LOW' ? 'VERIFIED' : 'ANOMALY') : 'NOT ANALYZED', color: state.model?.fingerprintStatus === 'MATCH' && state.model?.triggerRisk === 'LOW' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/50' : 'text-slate-400 border-slate-700/30 bg-slate-900/50', metric: state.model ? state.model.fingerprintStatus : 'No Model' },
+                  { name: 'INFERENCE BITSTREAM', status: state.inference ? (state.inference.sealStatus === 'VERIFIED' ? 'SIGNED' : 'TAMPERED') : 'NOT AVAILABLE', color: state.inference?.sealStatus === 'VERIFIED' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/50' : 'text-slate-400 border-slate-700/30 bg-slate-900/50', metric: state.inference ? (state.inference.sealStatus === 'VERIFIED' ? 'Pixel Seal Valid' : 'Seal Compromised') : 'No Inference' },
+                  { name: 'PROVENANCE CHAIN', status: state.inference ? (state.inference.sealStatus === 'VERIFIED' ? 'VERIFIED' : 'BROKEN') : 'NOT AVAILABLE', color: state.inference?.sealStatus === 'VERIFIED' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/50' : 'text-slate-400 border-slate-700/30 bg-slate-900/50', metric: state.inference ? 'Ed25519 Bound' : 'Pending' },
+                  { name: 'DISTRIBUTION SHIFT', status: state.distribution ? (state.distribution.currentScenario === 'NORMAL' ? 'NORMAL' : state.distribution.currentScenario === 'ADVERSARIAL_INPUT' ? 'MALICIOUS' : 'DRIFT') : 'NOT ANALYZED', color: state.distribution?.currentScenario === 'NORMAL' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-950/50' : 'text-slate-400 border-slate-700/30 bg-slate-900/50', metric: state.distribution ? `MMD: ${state.distribution.scenarios[state.distribution.currentScenario]?.mmd ?? 0}` : 'No Baseline' },
                 ].map((st, i) => (
                   <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-slate-950 border border-slate-800">
                     <span className="font-semibold text-slate-300 text-[11px]">{st.name}</span>
@@ -231,7 +231,7 @@ export const LandingPage: React.FC = () => {
                     <Scale className="w-4 h-4 text-cyan-400" />
                     <span className="font-mono text-xs font-bold text-white">GOVERNANCE VERDICT:</span>
                   </div>
-                  <StatusBadge status={state.governance.status} type="decision" size="sm" />
+                  <StatusBadge status={state.governance?.status || 'REVIEW'} type="decision" size="sm" />
                 </div>
                 <div className="mt-2 text-[10px] font-mono text-slate-400 text-center">
                   Policy: <strong className="text-emerald-400">ACCEPT</strong> | <strong className="text-amber-400">REVIEW</strong> | <strong className="text-rose-400">QUARANTINE</strong>
@@ -959,36 +959,36 @@ export const LandingPage: React.FC = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono text-xs">
               <div className="p-3 rounded bg-slate-950 border border-slate-800">
                 <span className="text-[10px] text-slate-500 block">PIXEL SEAL</span>
-                <span className={`text-sm font-bold mt-1 block ${state.inference.sealStatus === 'VERIFIED' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {state.inference.sealStatus}
+                <span className={`text-sm font-bold mt-1 block ${state.inference?.sealStatus === 'VERIFIED' ? 'text-emerald-400' : 'text-slate-400'}`}>
+                  {state.inference?.sealStatus || 'NOT AVAILABLE'}
                 </span>
               </div>
 
               <div className="p-3 rounded bg-slate-950 border border-slate-800">
                 <span className="text-[10px] text-slate-500 block">OUTPUT HASH</span>
-                <span className={`text-sm font-bold mt-1 block ${state.inference.sealStatus === 'VERIFIED' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {state.inference.sealStatus === 'VERIFIED' ? 'MATCH' : 'MISMATCH'}
+                <span className={`text-sm font-bold mt-1 block ${state.inference?.sealStatus === 'VERIFIED' ? 'text-emerald-400' : 'text-slate-400'}`}>
+                  {state.inference?.sealStatus === 'VERIFIED' ? 'MATCH' : 'N/A'}
                 </span>
               </div>
 
               <div className="p-3 rounded bg-slate-950 border border-slate-800">
                 <span className="text-[10px] text-slate-500 block">GOVERNANCE VERDICT</span>
                 <div className="mt-1">
-                  <StatusBadge status={state.governance.status} type="decision" size="sm" />
+                  <StatusBadge status={state.governance?.status || 'REVIEW'} type="decision" size="sm" />
                 </div>
               </div>
 
               <div className="p-3 rounded bg-slate-950 border border-slate-800">
                 <span className="text-[10px] text-slate-500 block">AUDIT JOURNAL</span>
                 <span className="text-sm font-bold text-cyan-400 mt-1 block">
-                  COMMITTED ({state.auditEvents[0]?.id})
+                  COMMITTED ({state.auditEvents[0]?.id || 'NONE'})
                 </span>
               </div>
             </div>
 
             <div className="p-3 rounded bg-slate-950 border border-slate-800 text-xs font-mono text-slate-300">
               <span className="text-slate-500 uppercase font-bold text-[10px] block">LATEST EVIDENCE:</span>
-              <div className="text-white mt-0.5">{state.governance.reason}</div>
+              <div className="text-white mt-0.5">{state.governance?.reason || 'No evidence evaluated yet.'}</div>
             </div>
 
             <div className="pt-2 flex justify-end">

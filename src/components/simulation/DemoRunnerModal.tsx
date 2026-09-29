@@ -141,7 +141,7 @@ export const DemoRunnerModal: React.FC<{ isOpen: boolean; onClose: () => void }>
       title: 'Export Final Sovereign Assurance Report',
       actionLabel: 'Generate Formal Report',
       expectedStatus: 'COMPREHENSIVE MULTI-BOUNDARY AUDIT',
-      governanceResult: state.governance.status,
+      governanceResult: (state.governance?.status || 'REVIEW') as 'ACCEPT' | 'REVIEW' | 'QUARANTINE',
       description: 'Renders formal defense audit dossier ready for commanders, operational review, and print/export archiving.',
       targetPage: 'report',
       action: () => {
